@@ -1,0 +1,10 @@
+{
+  "description": "Manage dental clinic operations with patient records, clinical histories, appointment scheduling, financial tracking, and integrated chatbot support for dentists.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

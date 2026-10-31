@@ -207,3 +207,38 @@ input, select, textarea {
   background: #FEE2E2;
   color: #991B1B;
 }
+
+@media print {
+  body {
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .budget-print-root,
+  .budget-print-root * {
+    visibility: visible;
+  }
+
+  .budget-print-root {
+    position: absolute;
+    inset: 0;
+    max-width: none;
+    padding: 16px;
+  }
+
+  .budget-actions,
+  .budget-print-root button {
+    display: none !important;
+  }
+
+  .budget-print-root input,
+  .budget-print-root textarea,
+  .budget-print-root select {
+    border-color: transparent !important;
+    background: transparent !important;
+  }
+}

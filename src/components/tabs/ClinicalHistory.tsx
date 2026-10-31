@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const CheckboxGroup = ({ items, cols = 3 }: { items: string[]; cols?: number }) => (
   <div className={`grid gap-x-4 gap-y-2`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
@@ -59,9 +60,22 @@ const Toggle = ({ label, defaultChecked }: { label: string; defaultChecked?: boo
       <span className="text-sm text-slate-600">{label}</span>
       <button
         onClick={() => setOn(!on)}
-        className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${on ? 'bg-blue-600' : 'bg-slate-200'}`}
+        className="relative flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none"
+        style={{
+          width: 40, height: 22,
+          background: on ? '#2563EB' : '#CBD5E1',
+        }}
+        aria-checked={on}
+        role="switch"
       >
-        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`} />
+        <span
+          className="absolute bg-white rounded-full shadow-sm transition-transform duration-200"
+          style={{
+            width: 16, height: 16,
+            top: 3, left: 3,
+            transform: on ? 'translateX(18px)' : 'translateX(0)',
+          }}
+        />
       </button>
     </div>
   );
@@ -74,16 +88,56 @@ const toothNumbers = [
   ['48','47','46','45','44','43','42','41','31','32','33','34','35','36','37','38'],
 ];
 
-const toothColors: Record<string, string> = {
-  '16': '#FEF3C7', '26': '#FEF3C7', '36': '#FEF3C7', '46': '#FEF3C7',
-  '11': '#FEE2E2', '21': '#FEE2E2',
-  '14': '#DCFCE7', '24': '#DCFCE7',
+type ToothStateKey = 'sano' | 'cariado' | 'obturado' | 'corona' | 'ausente' | 'extraccion';
+
+const STATE_CFG: Record<ToothStateKey, { label: string; bg: string; border: string; dot: string; text: string }> = {
+  sano:       { label: 'Sano',               bg: '#F8FAFD', border: '#CBD5E1', dot: '#94A3B8', text: '#475569' },
+  cariado:    { label: 'Cariado',            bg: '#FEE2E2', border: '#FCA5A5', dot: '#EF4444', text: '#B91C1C' },
+  obturado:   { label: 'Obturado',           bg: '#DCFCE7', border: '#86EFAC', dot: '#22C55E', text: '#15803D' },
+  corona:     { label: 'Corona/Prótesis',    bg: '#FEF3C7', border: '#FCD34D', dot: '#F59E0B', text: '#92400E' },
+  ausente:    { label: 'Ausente/Perdido',    bg: '#E0E7FF', border: '#A5B4FC', dot: '#6366F1', text: '#3730A3' },
+  extraccion: { label: 'Extracción indicada',bg: '#FCE7F3', border: '#F9A8D4', dot: '#EC4899', text: '#9D174D' },
+};
+
+const INITIAL_STATES: Record<string, ToothStateKey> = {
+  '16': 'cariado', '11': 'cariado', '21': 'cariado',
+  '14': 'obturado', '24': 'obturado',
+  '26': 'corona',
+  '46': 'ausente',
 };
 
 export default function ClinicalHistory() {
   const [hemorrhage, setHemorrhage] = useState(false);
+  const [toothStates, setToothStates] = useState<Record<string, ToothStateKey>>(INITIAL_STATES);
+  const [openTooth, setOpenTooth] = useState<{
+    num: string;
+    row: number;
+    cx: number;   // center x of button in viewport
+    top: number;  // button top in viewport
+    bottom: number; // button bottom in viewport
+  } | null>(null);
+
+  const handleToothClick = (e: React.MouseEvent<HTMLButtonElement>, num: string, ri: number) => {
+    e.stopPropagation();
+    if (openTooth?.num === num) { setOpenTooth(null); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    setOpenTooth({ num, row: ri, cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
+  };
+
+  const setToothState = (num: string, state: ToothStateKey) => {
+    setToothStates(prev => ({ ...prev, [num]: state }));
+    setOpenTooth(null);
+  };
+
+  const allTeeth = toothNumbers.flat();
+  const cpod = {
+    c: allTeeth.filter(n => toothStates[n] === 'cariado').length,
+    p: allTeeth.filter(n => toothStates[n] === 'ausente').length,
+    o: allTeeth.filter(n => toothStates[n] === 'obturado').length,
+  };
 
   return (
+    <>
     <div className="space-y-4">
       {/* Card A: Filiación */}
       <CardSection letter="A" title="Filiación del Paciente">
@@ -127,9 +181,15 @@ export default function ClinicalHistory() {
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Hemorragia Previa</p>
                 <button
                   onClick={() => setHemorrhage(!hemorrhage)}
-                  className={`w-9 h-5 rounded-full transition-colors relative ${hemorrhage ? 'bg-red-500' : 'bg-slate-200'}`}
+                  className="relative flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none"
+                  style={{ width: 40, height: 22, background: hemorrhage ? '#EF4444' : '#CBD5E1' }}
+                  aria-checked={hemorrhage}
+                  role="switch"
                 >
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${hemorrhage ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  <span
+                    className="absolute bg-white rounded-full shadow-sm transition-transform duration-200"
+                    style={{ width: 16, height: 16, top: 3, left: 3, transform: hemorrhage ? 'translateX(18px)' : 'translateX(0)' }}
+                  />
                 </button>
               </div>
               {hemorrhage && (
@@ -224,60 +284,81 @@ export default function ClinicalHistory() {
 
       {/* Card E: Odontograma */}
       <CardSection letter="E" title="Odontograma y Estado Periodontal">
-        <div className="overflow-x-auto">
+        <p className="text-xs text-slate-400 mb-4">Haz clic en cualquier diente para asignar su estado clínico.</p>
+
+        <div className="overflow-x-auto pb-2">
           {toothNumbers.map((row, ri) => (
-            <div key={ri} className="flex justify-center gap-1 mb-2">
-              {row.map(num => (
-                <div key={num} className="flex flex-col items-center gap-0.5">
-                  <div
-                    className="w-10 h-10 rounded border-2 flex items-center justify-center text-xs font-mono font-semibold cursor-pointer hover:border-blue-400 transition-colors"
-                    style={{
-                      borderColor: '#CBD5E1',
-                      background: toothColors[num] || '#F8FAFD',
-                      color: '#374151',
-                    }}
-                  >
-                    {num}
+            <div key={ri} className="flex justify-center gap-1 mb-3">
+              {row.map(num => {
+                const stateKey = toothStates[num] ?? 'sano';
+                const cfg = STATE_CFG[stateKey];
+                const isOpen = openTooth?.num === num;
+
+                return (
+                  <div key={num} className="flex flex-col items-center gap-0.5">
+                    <button
+                      onClick={e => handleToothClick(e, num, ri)}
+                      className="w-10 h-10 rounded border-2 flex items-center justify-center text-xs font-mono font-bold transition-all hover:scale-105"
+                      style={{
+                        background: cfg.bg,
+                        borderColor: isOpen ? '#3B82F6' : cfg.border,
+                        color: cfg.text,
+                        boxShadow: isOpen ? '0 0 0 2px #BFDBFE' : undefined,
+                        transform: isOpen ? 'scale(1.1)' : undefined,
+                      }}
+                    >
+                      {num}
+                    </button>
+                    <div className="w-2 h-2 rounded-full" style={{
+                      background: stateKey !== 'sano' ? cfg.dot : 'transparent',
+                    }} />
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>
+
         {/* Legend */}
         <div className="mt-5 pt-4 border-t" style={{ borderColor: '#EEF2F7' }}>
-          <div className="flex flex-wrap gap-3">
-            {[
-              { color: '#F8FAFD', border: '#CBD5E1', label: 'Sano' },
-              { color: '#FEE2E2', border: '#FCA5A5', label: 'Cariado' },
-              { color: '#DCFCE7', border: '#86EFAC', label: 'Obturado' },
-              { color: '#FEF3C7', border: '#FCD34D', label: 'Corona/Prótesis' },
-              { color: '#E0E7FF', border: '#A5B4FC', label: 'Ausente/Perdido' },
-              { color: '#FCE7F3', border: '#F9A8D4', label: 'Extracción indicada' },
-            ].map(({ color, border, label }) => (
-              <div key={label} className="flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded border-2 flex-shrink-0" style={{ background: color, borderColor: border }} />
-                <span className="text-xs text-slate-500">{label}</span>
+          <div className="flex flex-wrap gap-2.5">
+            {(Object.entries(STATE_CFG) as [ToothStateKey, typeof STATE_CFG[ToothStateKey]][]).map(([key, s]) => (
+              <div key={key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: s.bg, border: `1px solid ${s.border}` }}>
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.dot }} />
+                <span className="text-xs font-semibold" style={{ color: s.text }}>{s.label}</span>
               </div>
             ))}
           </div>
+
           <div className="grid grid-cols-4 gap-4 mt-4">
             {[
-              { label: 'CPO-D (adultos)', value: '8.3' },
-              { label: 'CEO (niños)', value: '—' },
-              { label: 'Índice de placa', value: '35%' },
-              { label: 'Índice gingival', value: 'Leve' },
-            ].map(({ label, value }) => (
+              { label: 'Cariados (C)', value: cpod.c, color: '#B91C1C' },
+              { label: 'Perdidos (P)', value: cpod.p, color: '#3730A3' },
+              { label: 'Obturados (O)', value: cpod.o, color: '#15803D' },
+              { label: 'CPO-D Total', value: cpod.c + cpod.p + cpod.o, color: '#1A4F8A' },
+            ].map(({ label, value, color }) => (
               <div key={label} className="px-3 py-2.5 rounded-lg" style={{ background: '#F0F4F8' }}>
                 <div className="text-xs text-slate-500 mb-0.5">{label}</div>
-                <div className="text-lg font-semibold" style={{ color: '#1A4F8A', fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
+                <div className="text-lg font-bold" style={{ color, fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
               </div>
             ))}
           </div>
         </div>
+
         <div className="mt-4 flex justify-end gap-3">
-          <button className="px-4 py-2 text-sm font-semibold rounded-md border transition-colors hover:bg-slate-50" style={{ borderColor: '#D1D9E6', color: '#475569' }}>
-            Limpiar Odontograma
+          <button
+            onClick={() => setToothStates(INITIAL_STATES)}
+            className="px-4 py-2 text-sm font-semibold rounded-md border transition-colors hover:bg-slate-50"
+            style={{ borderColor: '#D1D9E6', color: '#475569' }}
+          >
+            Restaurar
+          </button>
+          <button
+            onClick={() => setToothStates({})}
+            className="px-4 py-2 text-sm font-semibold rounded-md border transition-colors hover:bg-red-50"
+            style={{ borderColor: '#FCA5A5', color: '#B91C1C' }}
+          >
+            Limpiar
           </button>
           <button className="px-4 py-2 text-sm font-semibold rounded-md text-white transition-colors hover:opacity-90" style={{ background: '#1A4F8A' }}>
             Guardar Historia Clínica
@@ -285,5 +366,59 @@ export default function ClinicalHistory() {
         </div>
       </CardSection>
     </div>
+    {/* Tooth state popover — rendered via portal so it escapes overflow:hidden ancestors */}
+    {openTooth && createPortal(
+      <>
+        {/* backdrop */}
+        <div className="fixed inset-0 z-40" onClick={() => setOpenTooth(null)} />
+
+        {/* popover */}
+        <div
+          className="fixed z-50 rounded-xl overflow-hidden"
+          style={{
+            width: 176,
+            left: Math.max(8, Math.min(openTooth.cx - 88, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 184)),
+            ...(openTooth.row === 1
+              ? { bottom: (typeof window !== 'undefined' ? window.innerHeight : 800) - openTooth.top + 6 }
+              : { top: openTooth.bottom + 6 }),
+            background: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.1)',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 border-b flex items-center justify-between"
+            style={{ background: '#F8FAFD', borderColor: '#F1F5F9' }}>
+            <span className="text-xs font-bold text-slate-600">Diente #{openTooth.num}</span>
+            <button onClick={() => setOpenTooth(null)}
+              className="text-slate-400 hover:text-slate-600 text-xs leading-none">✕</button>
+          </div>
+          <div className="py-1">
+            {(Object.entries(STATE_CFG) as [ToothStateKey, typeof STATE_CFG[ToothStateKey]][]).map(([key, s]) => {
+              const current = toothStates[openTooth.num] ?? 'sano';
+              return (
+                <button
+                  key={key}
+                  onClick={() => setToothState(openTooth.num, key)}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-blue-50 transition-colors"
+                >
+                  <div className="w-4 h-4 rounded border-2 flex-shrink-0"
+                    style={{ background: s.bg, borderColor: s.border }} />
+                  <span className="text-sm text-slate-700 font-medium">{s.label}</span>
+                  {current === key && (
+                    <svg className="ml-auto flex-shrink-0" width="12" height="12" viewBox="0 0 24 24"
+                      fill="none" stroke="#3B82F6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </>,
+      document.body
+    )}
+    </>
   );
 }

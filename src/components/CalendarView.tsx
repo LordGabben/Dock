@@ -80,6 +80,16 @@ function ApptCard({
   const cfg = TYPE_CFG[appt.type];
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir historia clínica de ${appt.patient}`}
+      onClick={() => onOpen(appt.patient, appt.isNew ?? false)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen(appt.patient, appt.isNew ?? false);
+        }
+      }}
       className="absolute left-1 right-1 rounded-lg overflow-hidden border group cursor-pointer hover:shadow-md transition-all"
       style={{
         background: cfg.bg,
@@ -378,33 +388,28 @@ export default function CalendarView({ onOpenPatient }: { onOpenPatient: (name: 
   const monthName = today.toLocaleDateString('es-BO', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden min-w-0">
       {/* Calendar toolbar */}
-      <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b bg-white" style={{ borderColor: '#E2E8F0' }}>
-        <div className="flex items-center gap-3">
-          <button className="text-slate-400 hover:text-slate-600 transition-colors">
+      <div className="flex-shrink-0 flex items-center gap-3 px-5 py-3 border-b bg-white min-w-0" style={{ borderColor: '#E2E8F0' }}>
+        {/* Left: navigation — can shrink if needed */}
+        <div className="flex items-center gap-2 min-w-0 flex-shrink">
+          <button className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
-          <h2 className="font-semibold text-slate-800 text-sm capitalize min-w-40 text-center">{monthName}</h2>
-          <button className="text-slate-400 hover:text-slate-600 transition-colors">
+          <h2 className="font-semibold text-slate-800 text-sm capitalize text-center truncate" style={{ minWidth: 0 }}>{monthName}</h2>
+          <button className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
-          <button className="text-xs font-semibold px-3 py-1.5 rounded-md border hover:bg-slate-50 transition-colors" style={{ borderColor: '#E2E8F0', color: '#475569' }}>
+          <button className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-md border hover:bg-slate-50 transition-colors" style={{ borderColor: '#E2E8F0', color: '#475569' }}>
             Hoy
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Legend */}
-          <div className="hidden lg:flex items-center gap-3">
-            {Object.values(TYPE_CFG).map(cfg => (
-              <div key={cfg.label} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm" style={{ background: cfg.color }} />
-                <span className="text-xs text-slate-500">{cfg.label}</span>
-              </div>
-            ))}
-          </div>
+        {/* Spacer */}
+        <div className="flex-1" />
 
+        {/* Right: action buttons — never shrink, always visible */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           <div className="w-px h-5" style={{ background: '#E2E8F0' }} />
 
           {/* Mode toggle */}
@@ -433,19 +438,31 @@ export default function CalendarView({ onOpenPatient }: { onOpenPatient: (name: 
         </div>
       </div>
 
-      {/* Bot vs Manual legend */}
-      <div className="flex-shrink-0 flex items-center gap-4 px-5 py-2 border-b text-xs" style={{ background: '#F8FAFD', borderColor: '#E2E8F0' }}>
-        <span className="text-slate-400 font-semibold uppercase tracking-wide" style={{ fontSize: '10px' }}>Origen de cita:</span>
-        <span className="flex items-center gap-1.5 font-semibold" style={{ color: '#1D4ED8' }}>
-          <span className="px-2 py-0.5 rounded-full" style={{ background: '#DBEAFE', fontSize: '10px' }}>🤖 Bot</span>
-          Agendado por IA
+      {/* Info bar: origin + treatment legend */}
+      <div className="flex-shrink-0 flex items-center gap-3 px-5 py-2 border-b text-xs min-w-0 overflow-hidden" style={{ background: '#F8FAFD', borderColor: '#E2E8F0' }}>
+        <span className="flex-shrink-0 text-slate-400 font-semibold uppercase tracking-wide" style={{ fontSize: '10px' }}>Origen:</span>
+        <span className="flex-shrink-0 flex items-center gap-1 font-semibold" style={{ color: '#1D4ED8' }}>
+          <span className="px-1.5 py-0.5 rounded-full" style={{ background: '#DBEAFE', fontSize: '10px' }}>🤖 Bot</span>
         </span>
-        <span className="flex items-center gap-1.5 font-semibold text-slate-500">
-          <span className="px-2 py-0.5 rounded-full" style={{ background: '#F3F4F6', fontSize: '10px' }}>✍️ Manual</span>
-          Agendado por staff
+        <span className="flex-shrink-0 flex items-center gap-1 font-semibold text-slate-500">
+          <span className="px-1.5 py-0.5 rounded-full" style={{ background: '#F3F4F6', fontSize: '10px' }}>✍️ Manual</span>
         </span>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="flex items-center gap-1 text-slate-400"><span className="w-3 h-0.5 inline-block rounded" style={{ background: '#EF4444' }} /> Hora actual</span>
+
+        <div className="w-px h-3 flex-shrink-0" style={{ background: '#E2E8F0' }} />
+
+        {/* Treatment type legend — scrolls if needed */}
+        <div className="flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {Object.values(TYPE_CFG).map(cfg => (
+            <div key={cfg.label} className="flex items-center gap-1 flex-shrink-0">
+              <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: cfg.color }} />
+              <span className="text-slate-500" style={{ fontSize: '10px' }}>{cfg.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="ml-auto flex-shrink-0 flex items-center gap-1.5 text-slate-400">
+          <span className="w-3 h-0.5 inline-block rounded" style={{ background: '#EF4444' }} />
+          <span style={{ fontSize: '10px' }}>Ahora</span>
         </div>
       </div>
 

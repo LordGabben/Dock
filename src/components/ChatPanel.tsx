@@ -81,7 +81,7 @@ export default function ChatPanel({ collapsed, onToggle }: { collapsed: boolean;
   return (
     <div
       className="flex-shrink-0 flex overflow-hidden border-l transition-all duration-300"
-      style={{ width: collapsed ? '48px' : '330px', borderColor: '#E2E8F0', background: '#FFFFFF' }}
+      style={{ width: collapsed ? '48px' : '380px', borderColor: '#E2E8F0', background: '#FFFFFF' }}
     >
       {/* Collapsed tab */}
       {collapsed && (

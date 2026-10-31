@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import PatientView from './components/PatientView';
@@ -152,9 +154,10 @@ export default function App() {
           </div>
         </header>
 
-        {/* Content */}
+        {/* Content — horizontal flex: main area fills remaining width, chat panel is fixed in flow */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+          {/* Main content: flex-grow fills all space left by chat panel */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
             {view === 'dashboard'    && <Dashboard onViewChange={(v) => setView(v)} />}
             {view === 'pacientes'    && <PatientView key={calendarNavKey} calendarPatient={calendarPatient} />}
             {view === 'calendario'   && <CalendarView onOpenPatient={(name, isNew) => { setCalendarPatient({ name, isNew }); setCalendarNavKey(k => k + 1); setView('pacientes'); }} />}
@@ -163,6 +166,7 @@ export default function App() {
             {view === 'reportes'     && <ReportesView />}
             {view === 'configuracion' && <ConfiguracionView />}
           </div>
+          {/* Chat panel: fixed width in normal flow — never overlaps main content */}
           <ChatPanel collapsed={chatCollapsed} onToggle={() => setChatCollapsed(!chatCollapsed)} />
         </div>
       </div>

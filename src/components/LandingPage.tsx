@@ -306,21 +306,21 @@ const PLANS: PricePlan[] = [
   {
     name: 'Independiente',
     sub: 'Para el odontólogo solo',
-    price: 'Bs. 149',
+    price: 'Bs. 349',
     period: '/ mes',
     cta: 'Seleccionar Plan',
     features: [
-      'Hasta 100 pacientes',
+      'Hasta 10 pacientes',
       'Historia clínica digital',
       'Calendario ilimitado',
-      'Chatbot IA — 200 mensajes/mes',
+      'Chatbot IA',
       'Reportes básicos',
     ],
   },
   {
-    name: 'Élite',
+    name: 'Pro',
     sub: 'El plan más popular',
-    price: 'Bs. 399',
+    price: 'Bs. 599',
     period: '/ mes',
     badge: '★ Reemplaza el costo de un asistente',
     cta: 'Seleccionar Plan',
@@ -342,12 +342,12 @@ const PLANS: PricePlan[] = [
     period: '',
     cta: 'Hablar con Ventas',
     features: [
-      'Multi-sede y multi-doctor',
-      'Dashboard Super Admin',
-      'SLA empresarial garantizado',
+      'Todo lo de Pro',
+      'Dashboard Centralizado',
+      'Web dedicada',
       'Integración con sistemas externos',
       'Onboarding personalizado',
-      'Facturación centralizada',
+      'Multi-sede y multi-doctor',
     ],
   },
 ];
@@ -509,7 +509,7 @@ export default function LandingPage({ onEnterApp }: { onEnterApp: () => void }) 
         >
           Gestión clínica integral con Inteligencia Artificial. Automatiza tus citas de WhatsApp,
           domina tus finanzas y blinda tu historia clínica con la plataforma definitiva
-          para odontólogos de élite.
+          para Odontólogos en Bolivia.
         </p>
 
         {/* CTAs */}
@@ -684,7 +684,7 @@ export default function LandingPage({ onEnterApp }: { onEnterApp: () => void }) 
               <span className="text-gradient-cyan"> en un solo lugar.</span>
             </h2>
             <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 17, maxWidth: 560, margin: '0 auto' }}>
-              Diseñado desde cero para la realidad del odontólogo boliviano. Cumplimiento legal, IA y finanzas integradas.
+              Diseñado desde cero para la realidad del Odontólogo Boliviano. Cumplimiento legal, IA y finanzas integradas.
             </p>
           </div>
 
@@ -964,7 +964,7 @@ export default function LandingPage({ onEnterApp }: { onEnterApp: () => void }) 
 
           <div className="border-t pt-8 flex flex-col md:flex-row items-center justify-between gap-4" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
             <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 13 }}>
-              © 2024 DOCK Clínica Dental IA. Todos los derechos reservados.
+              © 2026 Street Software Startup. Todos los derechos reservados.
             </p>
             <div className="flex gap-5">
               {['Política de Privacidad (Ley 164 BO)', 'Términos de Servicio', 'Cookies'].map(l => (

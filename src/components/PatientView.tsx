@@ -5,13 +5,15 @@ import Financial from './tabs/Financial';
 import Evolution from './tabs/Evolution';
 import OdontogramModule from './modules/OdontogramModule';
 import ConsentModule from './modules/ConsentModule';
+import Budget from './tabs/Budget';
 
-type Tab = 'historia' | 'galeria' | 'financiero' | 'evolucion' | 'odontograma' | 'consentimiento';
+type Tab = 'historia' | 'galeria' | 'financiero' | 'presupuesto' | 'evolucion' | 'odontograma' | 'consentimiento';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'historia',       label: 'Historia Clínica' },
   { id: 'galeria',        label: 'Galería' },
   { id: 'financiero',     label: 'Finanzas' },
+  { id: 'presupuesto',    label: 'Presupuesto' },
   { id: 'evolucion',      label: 'Evolución (SOAP)' },
   { id: 'odontograma',    label: 'Odontograma' },
   { id: 'consentimiento', label: 'Consentimiento' },
@@ -62,6 +64,7 @@ const TAB_EMPTY_HINTS: Record<Tab, { icon: string; title: string; desc: string; 
   historia:       { icon: '📋', title: 'Historia Clínica vacía', desc: 'Registra los datos de filiación, antecedentes y examen físico del paciente.', action: 'Completar Historia Clínica' },
   galeria:        { icon: '🖼️', title: 'Sin imágenes', desc: 'No hay radiografías ni fotografías clínicas registradas para este paciente.', action: 'Subir primera imagen' },
   financiero:     { icon: '💰', title: 'Sin plan de pago', desc: 'Crea el plan de tratamiento y asigna los costos para generar un plan de pagos.', action: 'Crear plan de tratamiento' },
+  presupuesto:    { icon: '📑', title: 'Sin presupuesto', desc: 'Crea un presupuesto detallado para que el paciente pueda revisarlo antes de iniciar el tratamiento.', action: 'Crear presupuesto' },
   evolucion:      { icon: '📝', title: 'Sin evoluciones SOAP', desc: 'Las notas clínicas aparecerán aquí después de la primera consulta.', action: 'Registrar primera evolución' },
   odontograma:    { icon: '🦷', title: 'Odontograma en blanco', desc: 'El odontograma se habilitará una vez que inicies la historia clínica.', action: 'Iniciar historia clínica' },
   consentimiento: { icon: '📄', title: 'Sin consentimientos', desc: 'Genera el consentimiento informado antes de iniciar cualquier procedimiento.', action: 'Generar consentimiento' },
@@ -307,6 +310,12 @@ export default function PatientView({ calendarPatient }: Props) {
                       </svg>
                       Registrar Pago
                     </button>
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors hover:bg-slate-50 text-slate-600" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
+                      </svg>
+                      Imprimir H.C.
+                    </button>
                     <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors hover:bg-green-50 text-green-700" style={{ borderColor: '#86EFAC', background: '#F0FDF4' }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -320,7 +329,7 @@ export default function PatientView({ calendarPatient }: Props) {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-0 mt-5 border-b" style={{ borderColor: '#E2E8F0', marginLeft: '-24px', marginRight: '-24px', paddingLeft: '24px' }}>
+          <div className="flex gap-0 mt-5 border-b overflow-x-auto" style={{ borderColor: '#E2E8F0', marginLeft: '-24px', marginRight: '-24px', paddingLeft: '24px', scrollbarWidth: 'none' }}>
             {tabs.map(tab => (
               <button
                 key={tab.id}
@@ -346,6 +355,7 @@ export default function PatientView({ calendarPatient }: Props) {
               {activeTab === 'historia'       && <ClinicalHistory />}
               {activeTab === 'galeria'        && <Gallery />}
               {activeTab === 'financiero'     && <Financial />}
+              {activeTab === 'presupuesto'    && <Budget patientName={activeProfile.name} patientCI={activeProfile.ci} />}
               {activeTab === 'evolucion'      && <Evolution />}
               {activeTab === 'odontograma'    && <OdontogramModule />}
               {activeTab === 'consentimiento' && <ConsentModule />}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ChatMessage {
   from: 'patient' | 'bot' | 'doctor';
@@ -73,6 +73,23 @@ export default function ChatPanel({ collapsed, onToggle }: { collapsed: boolean;
   const [active, setActive] = useState<number>(1);
   const [takenOver, setTakenOver] = useState<Set<number>>(new Set());
   const [replyText, setReplyText] = useState('');
+  const [panelWidth, setPanelWidth] = useState(380);
+  const [isResizing, setIsResizing] = useState(false);
+  const [widthLoaded, setWidthLoaded] = useState(false);
+
+  useEffect(() => {
+    const savedWidth = Number(localStorage.getItem('dock-chat-width'));
+    if (savedWidth >= 280 && savedWidth <= 560) setPanelWidth(savedWidth);
+    setWidthLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (widthLoaded && !isResizing) localStorage.setItem('dock-chat-width', String(panelWidth));
+  }, [isResizing, panelWidth, widthLoaded]);
+
+  const resizePanel = (clientX: number) => {
+    setPanelWidth(Math.min(560, Math.max(280, window.innerWidth - clientX)));
+  };
 
   const conv = conversations.find(c => c.id === active)!;
   const isManual = takenOver.has(active);
@@ -80,9 +97,41 @@ export default function ChatPanel({ collapsed, onToggle }: { collapsed: boolean;
 
   return (
     <div
-      className="flex-shrink-0 flex overflow-hidden border-l transition-all duration-300"
-      style={{ width: collapsed ? '48px' : '380px', borderColor: '#E2E8F0', background: '#FFFFFF' }}
+      className={`relative flex-shrink-0 flex overflow-visible border-l ${isResizing ? '' : 'transition-[width] duration-300'}`}
+      style={{ width: collapsed ? '48px' : `${panelWidth}px`, borderColor: '#E2E8F0', background: '#FFFFFF' }}
     >
+      {!collapsed && (
+        <div
+          role="separator"
+          aria-label="Cambiar ancho del panel de WhatsApp"
+          aria-orientation="vertical"
+          aria-valuemin={280}
+          aria-valuemax={560}
+          aria-valuenow={panelWidth}
+          tabIndex={0}
+          title="Arrastra para cambiar el ancho"
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setIsResizing(true);
+          }}
+          onPointerMove={(event) => {
+            if (isResizing) resizePanel(event.clientX);
+          }}
+          onPointerUp={(event) => {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+            setIsResizing(false);
+          }}
+          onPointerCancel={() => setIsResizing(false)}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft') setPanelWidth(width => Math.min(560, width + 16));
+            if (event.key === 'ArrowRight') setPanelWidth(width => Math.max(280, width - 16));
+          }}
+          className={`absolute left-0 top-0 bottom-0 z-30 w-2 -translate-x-1/2 cursor-col-resize touch-none group ${isResizing ? 'bg-blue-100/60' : ''}`}
+        >
+          <span className="absolute left-1/2 top-1/2 h-12 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100" />
+        </div>
+      )}
+
       {/* Collapsed tab */}
       {collapsed && (
         <button

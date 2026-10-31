@@ -1,13 +1,19 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type ToothType = 'molar' | 'premolar' | 'canine' | 'incisor';
-type ToothState = 'healthy' | 'caries' | 'filled' | 'missing' | 'crown' | 'fracture' | 'bridge';
+export type ToothState = 'healthy' | 'caries' | 'filled' | 'missing' | 'crown' | 'fracture' | 'bridge';
 type ToothRow = 'upper' | 'lower';
 
-interface ToothData {
+export interface ToothData {
   number: number;
   type: ToothType;
   state: ToothState;
+}
+
+export interface OdontogramSnapshot {
+  upper: ToothData[];
+  lower: ToothData[];
 }
 
 const STATE_CFG: Record<ToothState, { fill: string; border: string; label: string; dotColor?: string }> = {
@@ -27,9 +33,7 @@ const SW: Record<ToothType, number> = { molar: 36, premolar: 26, canine: 20, inc
 const OW: Record<ToothType, number> = { molar: 28, premolar: 18, canine: 13, incisor: 11 };
 const OH: Record<ToothType, number> = { molar: 20, premolar: 14, canine: 12, incisor: 7 };
 
-// Crown trapezoid — fw = occlusal (wider), nw = cervical (narrower), ch = height
-const CFW: Record<ToothType, number> = { molar: 26, premolar: 18, canine: 12, incisor: 11 };
-const CNW: Record<ToothType, number> = { molar: 20, premolar: 14, canine: 9, incisor: 9 };
+// Anatomical height proportions for crown and root.
 const CH:  Record<ToothType, number> = { molar: 17, premolar: 18, canine: 22, incisor: 18 };
 const RH:  Record<ToothType, number> = { molar: 22, premolar: 20, canine: 28, incisor: 20 };
 
@@ -61,6 +65,16 @@ const LOWER_TEETH: ToothData[] = mkTeeth(
    'healthy','healthy','healthy','healthy','healthy','caries','healthy','missing'],
 );
 
+export const createDefaultOdontogramSnapshot = (): OdontogramSnapshot => ({
+  upper: UPPER_TEETH.map(tooth => ({ ...tooth })),
+  lower: LOWER_TEETH.map(tooth => ({ ...tooth })),
+});
+
+export const createHealthyOdontogramSnapshot = (): OdontogramSnapshot => ({
+  upper: UPPER_TEETH.map(tooth => ({ ...tooth, state: 'healthy' })),
+  lower: LOWER_TEETH.map(tooth => ({ ...tooth, state: 'healthy' })),
+});
+
 // ─── Occlusal view (top-down biting surface) ────────────────────────────────
 
 function OcclusalSVG({ tooth, isHovered }: { tooth: ToothData; isHovered: boolean }) {
@@ -80,14 +94,24 @@ function OcclusalSVG({ tooth, isHovered }: { tooth: ToothData; isHovered: boolea
     if (type === 'molar') {
       return (
         <>
-          <rect x={cx - ow/2} y={cy - oh/2} width={ow} height={oh} rx={4}
-            fill={fill} stroke={stroke} strokeWidth={sW} />
+          <path
+            d={`M ${cx - ow/2 + 5} ${cy - oh/2}
+                C ${cx - ow/2 + 1} ${cy - oh/2} ${cx - ow/2} ${cy - oh/2 + 4} ${cx - ow/2 + 1} ${cy}
+                C ${cx - ow/2} ${cy + oh/2 - 4} ${cx - ow/2 + 3} ${cy + oh/2} ${cx - ow/2 + 7} ${cy + oh/2 - 1}
+                C ${cx - 2} ${cy + oh/2 + 1} ${cx + 2} ${cy + oh/2 + 1} ${cx + 6} ${cy + oh/2 - 1}
+                C ${cx + ow/2 - 2} ${cy + oh/2} ${cx + ow/2 + 1} ${cy + oh/2 - 4} ${cx + ow/2 - 1} ${cy}
+                C ${cx + ow/2 + 1} ${cy - oh/2 + 4} ${cx + ow/2 - 2} ${cy - oh/2} ${cx + ow/2 - 6} ${cy - oh/2 + 1}
+                C ${cx + 3} ${cy - oh/2 - 1} ${cx - 2} ${cy - oh/2 - 1} ${cx - ow/2 + 5} ${cy - oh/2} Z`}
+            fill={fill} stroke={stroke} strokeWidth={sW} strokeLinejoin="round"
+          />
           {!isMissing && (
             <>
-              <line x1={cx} y1={cy - oh/2 + 3} x2={cx} y2={cy + oh/2 - 3}
-                stroke={isHovered ? '#93C5FD' : '#D1D5DB'} strokeWidth="0.8" />
-              <line x1={cx - ow/2 + 3} y1={cy} x2={cx + ow/2 - 3} y2={cy}
-                stroke={isHovered ? '#93C5FD' : '#D1D5DB'} strokeWidth="0.8" />
+              <path d={`M ${cx} ${cy - oh/2 + 3} C ${cx - 2} ${cy - 2} ${cx + 2} ${cy + 2} ${cx} ${cy + oh/2 - 3}`}
+                stroke={isHovered ? '#93C5FD' : '#CBD5E1'} strokeWidth="0.8" fill="none" />
+              <path d={`M ${cx - ow/2 + 4} ${cy} C ${cx - 3} ${cy - 2} ${cx + 3} ${cy + 2} ${cx + ow/2 - 4} ${cy}`}
+                stroke={isHovered ? '#93C5FD' : '#CBD5E1'} strokeWidth="0.8" fill="none" />
+              <circle cx={cx - 5} cy={cy - 4} r="1.4" fill="none" stroke="#E2E8F0" strokeWidth="0.7" />
+              <circle cx={cx + 5} cy={cy + 4} r="1.4" fill="none" stroke="#E2E8F0" strokeWidth="0.7" />
             </>
           )}
         </>
@@ -96,22 +120,46 @@ function OcclusalSVG({ tooth, isHovered }: { tooth: ToothData; isHovered: boolea
     if (type === 'premolar') {
       return (
         <>
-          <ellipse cx={cx} cy={cy} rx={ow/2} ry={oh/2}
-            fill={fill} stroke={stroke} strokeWidth={sW} />
+          <path
+            d={`M ${cx} ${cy - oh/2}
+                C ${cx + ow/2 - 1} ${cy - oh/2 + 1} ${cx + ow/2 + 1} ${cy - 2} ${cx + ow/2 - 1} ${cy + 3}
+                C ${cx + ow/2 - 2} ${cy + oh/2} ${cx + 3} ${cy + oh/2 + 1} ${cx} ${cy + oh/2 - 1}
+                C ${cx - 3} ${cy + oh/2 + 1} ${cx - ow/2 + 2} ${cy + oh/2} ${cx - ow/2 + 1} ${cy + 3}
+                C ${cx - ow/2 - 1} ${cy - 2} ${cx - ow/2 + 1} ${cy - oh/2 + 1} ${cx} ${cy - oh/2} Z`}
+            fill={fill} stroke={stroke} strokeWidth={sW}
+          />
           {!isMissing && (
-            <line x1={cx - ow/2 + 3} y1={cy} x2={cx + ow/2 - 3} y2={cy}
-              stroke={isHovered ? '#93C5FD' : '#D1D5DB'} strokeWidth="0.8" />
+            <>
+              <path d={`M ${cx - ow/2 + 3} ${cy} Q ${cx} ${cy - 3} ${cx + ow/2 - 3} ${cy}`}
+                stroke={isHovered ? '#93C5FD' : '#CBD5E1'} strokeWidth="0.8" fill="none" />
+              <path d={`M ${cx - 2} ${cy - oh/2 + 3} Q ${cx} ${cy} ${cx - 2} ${cy + oh/2 - 3}`}
+                stroke="#E2E8F0" strokeWidth="0.7" fill="none" />
+            </>
           )}
         </>
       );
     }
     if (type === 'canine') {
-      return <ellipse cx={cx} cy={cy} rx={ow/2} ry={oh/2}
-        fill={fill} stroke={stroke} strokeWidth={sW} />;
+      return (
+        <path
+          d={`M ${cx} ${cy - oh/2}
+              C ${cx + ow/2} ${cy - oh/2 + 2} ${cx + ow/2 + 1} ${cy + 2} ${cx + 2} ${cy + oh/2}
+              C ${cx} ${cy + oh/2 + 1} ${cx - 2} ${cy + oh/2} ${cx - ow/2 - 1} ${cy + 2}
+              C ${cx - ow/2} ${cy - oh/2 + 2} ${cx - 2} ${cy - oh/2 + 1} ${cx} ${cy - oh/2} Z`}
+          fill={fill} stroke={stroke} strokeWidth={sW}
+        />
+      );
     }
     // incisor
-    return <rect x={cx - ow/2} y={cy - oh/2} width={ow} height={oh} rx={2}
-      fill={fill} stroke={stroke} strokeWidth={sW} />;
+    return (
+      <path
+        d={`M ${cx - ow/2 + 1} ${cy - oh/2}
+            Q ${cx} ${cy - oh/2 - 1} ${cx + ow/2 - 1} ${cy - oh/2}
+            L ${cx + ow/2} ${cy + oh/2 - 2}
+            Q ${cx} ${cy + oh/2 + 1} ${cx - ow/2} ${cy + oh/2 - 2} Z`}
+        fill={fill} stroke={stroke} strokeWidth={sW} strokeLinejoin="round"
+      />
+    );
   };
 
   const indicator = () => {
@@ -157,127 +205,154 @@ function OcclusalSVG({ tooth, isHovered }: { tooth: ToothData; isHovered: boolea
 
 function LateralSVG({ tooth, row, isHovered }: { tooth: ToothData; row: ToothRow; isHovered: boolean }) {
   const { type, state } = tooth;
-  const fw  = CFW[type];
-  const nw  = CNW[type];
-  const ch  = CH[type];
-  const rh  = RH[type];
-  const sw  = SW[type];
-  const cx  = sw / 2;
-  const hfw = fw / 2;
-  const hnw = nw / 2;
+  const sw = SW[type];
+  const cx = sw / 2;
+  const rh = RH[type];
+  const ch = CH[type];
   const totalH = rh + ch + 4;
+  const neckY = rh + 2;
+  const crownBottom = neckY + ch;
   const cfg = STATE_CFG[state];
   const isMissing = state === 'missing';
-
-  const rootClr   = isHovered ? '#93C5FD' : '#D1D5DB';
   const crownFill = isHovered ? '#EFF6FF' : cfg.fill;
-  const crownStr  = isHovered ? '#3B82F6' : cfg.border;
-  const crownSW   = isHovered ? 2 : 1.5;
+  const crownStroke = isHovered ? '#3B82F6' : cfg.border;
+  const rootStroke = isHovered ? '#93C5FD' : '#B8C2CE';
+  const anatomyTransform = row === 'lower' ? `translate(0 ${totalH}) scale(1 -1)` : undefined;
 
-  if (row === 'upper') {
-    // Roots at top, crown (occlusal surface) facing DOWN toward midline
-    const cTop = rh + 2;
-    const cBot = rh + ch + 2;
-    // Trapezoid: narrow at top (cervical), wide at bottom (occlusal)
-    const pts = `${cx - hnw},${cTop} ${cx + hnw},${cTop} ${cx + hfw},${cBot} ${cx - hfw},${cBot}`;
+  const rootPaths = () => {
+    if (isMissing) return null;
 
-    const roots = () => {
-      if (isMissing) return null;
-      if (type === 'molar') {
-        return (
-          <>
-            <path d={`M ${cx - hnw * 0.55} ${cTop} Q ${cx - hnw * 1.2} ${cTop - rh * 0.55} ${cx - hnw * 0.75} 2`}
-              stroke={rootClr} strokeWidth="7" strokeLinecap="round" fill="none" />
-            <path d={`M ${cx + hnw * 0.55} ${cTop} Q ${cx + hnw * 1.2} ${cTop - rh * 0.55} ${cx + hnw * 0.75} 2`}
-              stroke={rootClr} strokeWidth="7" strokeLinecap="round" fill="none" />
-          </>
-        );
-      }
-      const rw = type === 'canine' ? 5 : 4;
+    if (type === 'molar') {
       return (
-        <path d={`M ${cx} ${cTop} L ${cx} 2`}
-          stroke={rootClr} strokeWidth={rw} strokeLinecap="round" fill="none" />
+        <>
+          {row === 'upper' && (
+            <path
+              d={`M ${cx - 3} ${neckY + 2} C ${cx - 4} ${neckY - 7} ${cx - 3} 8 ${cx - 1} 2
+                  C ${cx + 1} 8 ${cx + 2} ${neckY - 6} ${cx + 3} ${neckY + 2} Z`}
+              fill="#F8FAFC" stroke={rootStroke} strokeWidth="1.1"
+            />
+          )}
+          <path
+            d={`M ${cx - 8} ${neckY + 2} C ${cx - 12} ${neckY - 7} ${cx - 13} 9 ${cx - 11} 3
+                C ${cx - 9} 0 ${cx - 6} 9 ${cx - 4} ${neckY + 2} Z`}
+            fill="#FAFAF9" stroke={rootStroke} strokeWidth="1.2"
+          />
+          <path
+            d={`M ${cx + 8} ${neckY + 2} C ${cx + 12} ${neckY - 7} ${cx + 13} 9 ${cx + 11} 3
+                C ${cx + 9} 0 ${cx + 6} 9 ${cx + 4} ${neckY + 2} Z`}
+            fill="#FAFAF9" stroke={rootStroke} strokeWidth="1.2"
+          />
+        </>
       );
-    };
+    }
 
+    if (type === 'premolar') {
+      return (
+        <>
+          <path
+            d={`M ${cx - 5} ${neckY + 1} C ${cx - 7} ${neckY - 7} ${cx - 6} 8 ${cx - 3} 2
+                C ${cx - 1} 0 ${cx} 11 ${cx} ${neckY + 1} Z`}
+            fill="#FAFAF9" stroke={rootStroke} strokeWidth="1.1"
+          />
+          <path
+            d={`M ${cx + 5} ${neckY + 1} C ${cx + 7} ${neckY - 7} ${cx + 6} 8 ${cx + 3} 2
+                C ${cx + 1} 0 ${cx} 11 ${cx} ${neckY + 1} Z`}
+            fill="#FAFAF9" stroke={rootStroke} strokeWidth="1.1"
+          />
+        </>
+      );
+    }
+
+    const rootHalfWidth = type === 'canine' ? 4.5 : 3.7;
     return (
-      <svg width={sw} height={totalH} viewBox={`0 0 ${sw} ${totalH}`} style={{ overflow: 'visible' }}>
-        {roots()}
-        {!isMissing ? (
+      <path
+        d={`M ${cx - rootHalfWidth} ${neckY + 1}
+            C ${cx - rootHalfWidth - 1} ${neckY - 8} ${cx - 3} 8 ${cx} 2
+            C ${cx + 3} 8 ${cx + rootHalfWidth + 1} ${neckY - 8} ${cx + rootHalfWidth} ${neckY + 1} Z`}
+        fill="#FAFAF9" stroke={rootStroke} strokeWidth="1.15"
+      />
+    );
+  };
+
+  const crownPath = () => {
+    if (type === 'molar') {
+      return `M ${cx - 8} ${neckY}
+        C ${cx - 12} ${neckY + 3} ${cx - 13} ${neckY + 10} ${cx - 12} ${crownBottom - 4}
+        C ${cx - 12} ${crownBottom - 1} ${cx - 9} ${crownBottom + 1} ${cx - 7} ${crownBottom - 2}
+        C ${cx - 5} ${crownBottom + 2} ${cx - 2} ${crownBottom + 2} ${cx} ${crownBottom - 2}
+        C ${cx + 2} ${crownBottom + 2} ${cx + 5} ${crownBottom + 2} ${cx + 7} ${crownBottom - 2}
+        C ${cx + 9} ${crownBottom + 1} ${cx + 12} ${crownBottom - 1} ${cx + 12} ${crownBottom - 4}
+        C ${cx + 13} ${neckY + 10} ${cx + 12} ${neckY + 3} ${cx + 8} ${neckY}
+        C ${cx + 4} ${neckY + 2} ${cx - 4} ${neckY + 2} ${cx - 8} ${neckY} Z`;
+    }
+    if (type === 'premolar') {
+      return `M ${cx - 6} ${neckY}
+        C ${cx - 9} ${neckY + 4} ${cx - 9} ${crownBottom - 5} ${cx - 7} ${crownBottom - 2}
+        C ${cx - 5} ${crownBottom + 1} ${cx - 2} ${crownBottom - 1} ${cx} ${crownBottom - 5}
+        C ${cx + 2} ${crownBottom - 1} ${cx + 5} ${crownBottom + 1} ${cx + 7} ${crownBottom - 2}
+        C ${cx + 9} ${crownBottom - 5} ${cx + 9} ${neckY + 4} ${cx + 6} ${neckY}
+        C ${cx + 3} ${neckY + 2} ${cx - 3} ${neckY + 2} ${cx - 6} ${neckY} Z`;
+    }
+    if (type === 'canine') {
+      return `M ${cx - 4.5} ${neckY}
+        C ${cx - 7} ${neckY + 4} ${cx - 7} ${crownBottom - 7} ${cx - 4} ${crownBottom - 3}
+        L ${cx} ${crownBottom + 1}
+        L ${cx + 4} ${crownBottom - 3}
+        C ${cx + 7} ${crownBottom - 7} ${cx + 7} ${neckY + 4} ${cx + 4.5} ${neckY}
+        C ${cx + 2} ${neckY + 1.5} ${cx - 2} ${neckY + 1.5} ${cx - 4.5} ${neckY} Z`;
+    }
+    return `M ${cx - 4.5} ${neckY}
+      C ${cx - 6} ${neckY + 4} ${cx - 6} ${crownBottom - 4} ${cx - 5} ${crownBottom - 1}
+      Q ${cx} ${crownBottom + 1} ${cx + 5} ${crownBottom - 1}
+      C ${cx + 6} ${crownBottom - 4} ${cx + 6} ${neckY + 4} ${cx + 4.5} ${neckY}
+      C ${cx + 2} ${neckY + 1.5} ${cx - 2} ${neckY + 1.5} ${cx - 4.5} ${neckY} Z`;
+  };
+
+  const crownD = crownPath();
+
+  return (
+    <svg width={sw} height={totalH} viewBox={`0 0 ${sw} ${totalH}`} style={{ overflow: 'visible' }}>
+      <g transform={anatomyTransform}>
+        {rootPaths()}
+        <path
+          d={crownD}
+          fill={isMissing ? '#F8FAFC' : crownFill}
+          stroke={crownStroke}
+          strokeWidth={isHovered ? 1.8 : 1.35}
+          strokeLinejoin="round"
+          strokeDasharray={isMissing ? '2 2' : undefined}
+        />
+        {!isMissing && (
           <>
-            <polygon points={pts} fill={crownFill} stroke={crownStr} strokeWidth={crownSW} />
-            {state === 'crown' && (
-              <polygon points={pts} fill="none" stroke="#F59E0B" strokeWidth="2.5" />
-            )}
-            {state === 'bridge' && (
-              <line x1={cx - hfw} y1={(cTop + cBot) / 2}
-                x2={cx + hfw} y2={(cTop + cBot) / 2}
-                stroke="#22C55E" strokeWidth="3" />
-            )}
-          </>
-        ) : (
-          <>
-            <line x1={cx - hfw * 0.7 + 1} y1={cTop + 4} x2={cx + hfw * 0.7 - 1} y2={cBot - 4}
-              stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1={cx + hfw * 0.7 - 1} y1={cTop + 4} x2={cx - hfw * 0.7 + 1} y2={cBot - 4}
-              stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
+            <path
+              d={`M ${cx - (type === 'molar' ? 8 : 4)} ${neckY + 4}
+                  Q ${cx} ${neckY + 1} ${cx + (type === 'molar' ? 8 : 4)} ${neckY + 4}`}
+              fill="none" stroke="#DCE3EA" strokeWidth="0.8"
+            />
+            <path
+              d={`M ${cx - (type === 'molar' ? 7 : 3)} ${crownBottom - 4}
+                  Q ${cx} ${crownBottom - 1} ${cx + (type === 'molar' ? 7 : 3)} ${crownBottom - 4}`}
+              fill="none" stroke="#E2E8F0" strokeWidth="0.75"
+            />
           </>
         )}
-      </svg>
-    );
-  } else {
-    // Lower: crown (occlusal surface) facing UP toward midline, roots at bottom
-    const cTop = 2;
-    const cBot = ch + 2;
-    // Trapezoid: wide at top (occlusal), narrow at bottom (cervical)
-    const pts = `${cx - hfw},${cTop} ${cx + hfw},${cTop} ${cx + hnw},${cBot} ${cx - hnw},${cBot}`;
-    const rEnd = cBot + rh;
-
-    const roots = () => {
-      if (isMissing) return null;
-      if (type === 'molar') {
-        return (
+        {isMissing && (
           <>
-            <path d={`M ${cx - hnw * 0.55} ${cBot} Q ${cx - hnw * 1.2} ${cBot + rh * 0.55} ${cx - hnw * 0.75} ${rEnd}`}
-              stroke={rootClr} strokeWidth="7" strokeLinecap="round" fill="none" />
-            <path d={`M ${cx + hnw * 0.55} ${cBot} Q ${cx + hnw * 1.2} ${cBot + rh * 0.55} ${cx + hnw * 0.75} ${rEnd}`}
-              stroke={rootClr} strokeWidth="7" strokeLinecap="round" fill="none" />
-          </>
-        );
-      }
-      const rw = type === 'canine' ? 5 : 4;
-      return (
-        <path d={`M ${cx} ${cBot} L ${cx} ${rEnd}`}
-          stroke={rootClr} strokeWidth={rw} strokeLinecap="round" fill="none" />
-      );
-    };
-
-    return (
-      <svg width={sw} height={totalH} viewBox={`0 0 ${sw} ${totalH}`} style={{ overflow: 'visible' }}>
-        {roots()}
-        {!isMissing ? (
-          <>
-            <polygon points={pts} fill={crownFill} stroke={crownStr} strokeWidth={crownSW} />
-            {state === 'crown' && (
-              <polygon points={pts} fill="none" stroke="#F59E0B" strokeWidth="2.5" />
-            )}
-            {state === 'bridge' && (
-              <line x1={cx - hfw} y1={(cTop + cBot) / 2}
-                x2={cx + hfw} y2={(cTop + cBot) / 2}
-                stroke="#22C55E" strokeWidth="3" />
-            )}
-          </>
-        ) : (
-          <>
-            <line x1={cx - hfw * 0.7 + 1} y1={cTop + 4} x2={cx + hfw * 0.7 - 1} y2={cBot - 4}
-              stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1={cx + hfw * 0.7 - 1} y1={cTop + 4} x2={cx - hfw * 0.7 + 1} y2={cBot - 4}
-              stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1={cx - 5} y1={neckY + 5} x2={cx + 5} y2={crownBottom - 3} stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1={cx + 5} y1={neckY + 5} x2={cx - 5} y2={crownBottom - 3} stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
           </>
         )}
-      </svg>
-    );
-  }
+        {state === 'crown' && <path d={crownD} fill="none" stroke="#F59E0B" strokeWidth="2.2" />}
+        {state === 'bridge' && (
+          <path
+            d={`M ${cx - (type === 'molar' ? 12 : 7)} ${neckY + ch * 0.58}
+                Q ${cx} ${neckY + ch * 0.45} ${cx + (type === 'molar' ? 12 : 7)} ${neckY + ch * 0.58}`}
+            fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round"
+          />
+        )}
+      </g>
+    </svg>
+  );
 }
 
 // ─── Popover ─────────────────────────────────────────────────────────────────
@@ -285,11 +360,18 @@ function LateralSVG({ tooth, row, isHovered }: { tooth: ToothData; row: ToothRow
 interface PopoverProps {
   tooth: ToothData;
   row: ToothRow;
+  anchorRect: {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+    width: number;
+  };
   onSelect: (s: ToothState) => void;
   onClose: () => void;
 }
 
-function ToothPopover({ tooth, row, onSelect, onClose }: PopoverProps) {
+function ToothPopover({ tooth, row, anchorRect, onSelect, onClose }: PopoverProps) {
   const options: { state: ToothState; label: string; color: string; icon: string }[] = [
     { state: 'healthy',  label: 'Sano',     color: '#15803D', icon: '✓' },
     { state: 'caries',   label: 'Caries',   color: '#EF4444', icon: '●' },
@@ -300,29 +382,49 @@ function ToothPopover({ tooth, row, onSelect, onClose }: PopoverProps) {
     { state: 'bridge',   label: 'Puente',   color: '#22C55E', icon: '—' },
   ];
 
-  const posStyle = row === 'upper'
-    ? { bottom: 'calc(100% + 6px)' }
-    : { top: 'calc(100% + 6px)' };
+  if (typeof document === 'undefined') return null;
 
-  return (
+  const popoverWidth = 170;
+  const preferredHeight = 276;
+  const viewportPadding = 8;
+  const gap = 8;
+  const spaceAbove = anchorRect.top - viewportPadding - gap;
+  const spaceBelow = window.innerHeight - anchorRect.bottom - viewportPadding - gap;
+  const openBelow = row === 'upper'
+    ? spaceBelow >= 150 || spaceBelow >= spaceAbove
+    : !(spaceAbove >= 150 || spaceAbove >= spaceBelow);
+  const availableHeight = Math.max(120, openBelow ? spaceBelow : spaceAbove);
+  const popoverHeight = Math.min(preferredHeight, availableHeight);
+  const anchorCenter = anchorRect.left + anchorRect.width / 2;
+  const left = Math.max(
+    viewportPadding,
+    Math.min(anchorCenter - popoverWidth / 2, window.innerWidth - popoverWidth - viewportPadding),
+  );
+  const top = openBelow
+    ? anchorRect.bottom + gap
+    : Math.max(viewportPadding, anchorRect.top - popoverHeight - gap);
+  const arrowLeft = Math.max(12, Math.min(popoverWidth - 12, anchorCenter - left));
+
+  return createPortal(
     <div
-      className="absolute z-30 rounded-xl shadow-2xl overflow-hidden"
+      className="fixed z-[100] flex flex-col rounded-xl shadow-2xl overflow-hidden"
       style={{
-        ...posStyle,
-        left: '50%',
-        transform: 'translateX(-50%)',
+        top,
+        left,
         background: '#FFFFFF',
         border: '1px solid #E2E8F0',
-        width: 170,
+        width: popoverWidth,
+        maxHeight: popoverHeight,
         boxShadow: '0 16px 48px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.1)',
       }}
+      onClick={event => event.stopPropagation()}
     >
       <div className="px-3 py-2 border-b flex items-center justify-between"
         style={{ borderColor: '#F1F5F9', background: '#F8FAFD' }}>
         <span className="text-xs font-bold text-slate-600">Diente #{tooth.number}</span>
         <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xs leading-none">✕</button>
       </div>
-      <div className="py-1">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
         {options.map(opt => (
           <button
             key={opt.state}
@@ -341,15 +443,19 @@ function ToothPopover({ tooth, row, onSelect, onClose }: PopoverProps) {
           </button>
         ))}
       </div>
-      {row === 'upper' && (
-        <div className="absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b"
-          style={{ borderColor: '#E2E8F0', bottom: -6, transform: 'translateX(-50%) rotate(45deg)' }} />
-      )}
-      {row === 'lower' && (
-        <div className="absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-l border-t"
-          style={{ borderColor: '#E2E8F0', top: -6, transform: 'translateX(-50%) rotate(45deg)' }} />
-      )}
-    </div>
+      <div
+        className={`absolute h-3 w-3 rotate-45 bg-white ${
+          openBelow ? 'border-l border-t' : 'border-r border-b'
+        }`}
+        style={{
+          borderColor: '#E2E8F0',
+          left: arrowLeft - 6,
+          top: openBelow ? -6 : undefined,
+          bottom: openBelow ? undefined : -6,
+        }}
+      />
+    </div>,
+    document.body,
   );
 }
 
@@ -363,18 +469,40 @@ const VERSIONS = [
   { label: '05 Jul 2025', value: '2025-07-05' },
 ];
 
-export default function OdontogramModule() {
-  const [upperTeeth, setUpperTeeth] = useState<ToothData[]>(UPPER_TEETH);
-  const [lowerTeeth, setLowerTeeth] = useState<ToothData[]>(LOWER_TEETH);
+interface OdontogramModuleProps {
+  value?: OdontogramSnapshot;
+  onChange?: (snapshot: OdontogramSnapshot) => void;
+  embedded?: boolean;
+  readOnly?: boolean;
+}
+
+export default function OdontogramModule({
+  value,
+  onChange,
+  embedded = false,
+  readOnly = false,
+}: OdontogramModuleProps = {}) {
+  const [localSnapshot, setLocalSnapshot] = useState<OdontogramSnapshot>(createDefaultOdontogramSnapshot);
   const [hovered,     setHovered]     = useState<number | null>(null);
-  const [popoverTooth, setPopoverTooth] = useState<number | null>(null);
+  const [popoverTarget, setPopoverTarget] = useState<{
+    tooth: number;
+    rect: PopoverProps['anchorRect'];
+  } | null>(null);
   const [selectedVersion, setSelectedVersion] = useState('current');
 
+  const snapshot = value ?? localSnapshot;
+  const upperTeeth = snapshot.upper;
+  const lowerTeeth = snapshot.lower;
   const allTeeth = [...upperTeeth, ...lowerTeeth];
 
   const updateState = (num: number, state: ToothState) => {
-    setUpperTeeth(prev => prev.map(t => t.number === num ? { ...t, state } : t));
-    setLowerTeeth(prev => prev.map(t => t.number === num ? { ...t, state } : t));
+    if (readOnly) return;
+    const next = {
+      upper: upperTeeth.map(t => t.number === num ? { ...t, state } : t),
+      lower: lowerTeeth.map(t => t.number === num ? { ...t, state } : t),
+    };
+    if (onChange) onChange(next);
+    else setLocalSnapshot(next);
   };
 
   const cpoD = (() => {
@@ -388,13 +516,26 @@ export default function OdontogramModule() {
 
   const handleEnter = (n: number) => setHovered(n);
   const handleLeave = () => setHovered(null);
-  const handleClick = (n: number) => setPopoverTooth(prev => prev === n ? null : n);
+  const handleClick = (n: number, element: HTMLElement) => {
+    if (readOnly) return;
+    const rect = element.getBoundingClientRect();
+    setPopoverTarget(prev => prev?.tooth === n ? null : {
+      tooth: n,
+      rect: {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        width: rect.width,
+      },
+    });
+  };
 
   const lateralRow = (teeth: ToothData[], row: ToothRow, align: 'end' | 'start') => (
     <div className={`flex justify-center`} style={{ alignItems: align === 'end' ? 'flex-end' : 'flex-start' }}>
       {teeth.map((tooth, idx) => {
         const isHov = hovered === tooth.number;
-        const hasPop = popoverTooth === tooth.number;
+        const hasPop = popoverTarget?.tooth === tooth.number;
         const isMid = idx === MIDLINE_IDX;
         return (
           <div
@@ -406,14 +547,15 @@ export default function OdontogramModule() {
             }}
             onMouseEnter={() => handleEnter(tooth.number)}
             onMouseLeave={handleLeave}
-            onClick={() => handleClick(tooth.number)}
+            onClick={event => handleClick(tooth.number, event.currentTarget)}
           >
             {hasPop && (
               <ToothPopover
                 tooth={tooth}
                 row={row}
+                anchorRect={popoverTarget.rect}
                 onSelect={s => updateState(tooth.number, s)}
-                onClose={() => setPopoverTooth(null)}
+                onClose={() => setPopoverTarget(null)}
               />
             )}
             <LateralSVG tooth={tooth} row={row} isHovered={isHov} />
@@ -439,7 +581,7 @@ export default function OdontogramModule() {
             }}
             onMouseEnter={() => handleEnter(tooth.number)}
             onMouseLeave={handleLeave}
-            onClick={() => handleClick(tooth.number)}
+            onClick={event => handleClick(tooth.number, event.currentTarget)}
           >
             <OcclusalSVG tooth={tooth} isHovered={isHov} />
           </div>
@@ -464,7 +606,7 @@ export default function OdontogramModule() {
             }}
             onMouseEnter={() => handleEnter(tooth.number)}
             onMouseLeave={handleLeave}
-            onClick={() => handleClick(tooth.number)}
+            onClick={event => handleClick(tooth.number, event.currentTarget)}
           >
             <span
               className="font-mono font-bold select-none leading-none"
@@ -483,9 +625,12 @@ export default function OdontogramModule() {
   );
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#E2E8F0' }}>
+    <div
+      className={`border overflow-hidden ${embedded ? 'rounded-xl bg-slate-50/40' : 'bg-white rounded-2xl'}`}
+      style={{ borderColor: '#E2E8F0' }}
+    >
       {/* Header */}
-      <div className="px-5 py-4 border-b flex items-center justify-between"
+      {!embedded && <div className="px-5 py-4 border-b flex items-center justify-between"
         style={{ borderColor: '#EEF2F7', background: '#F8FAFD' }}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#EFF6FF' }}>
@@ -529,7 +674,7 @@ export default function OdontogramModule() {
             Guardar
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Odontogram chart */}
       <div className="px-6 py-5 overflow-x-auto">

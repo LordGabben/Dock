@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
+import OdontogramModule, {
+  createDefaultOdontogramSnapshot,
+  createHealthyOdontogramSnapshot,
+  type OdontogramSnapshot,
+} from '../modules/OdontogramModule';
 
 const CheckboxGroup = ({ items, cols = 3 }: { items: string[]; cols?: number }) => (
   <div className={`grid gap-x-4 gap-y-2`} style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
@@ -83,58 +87,20 @@ const Toggle = ({ label, defaultChecked }: { label: string; defaultChecked?: boo
 
 const patologicasFamiliares = ['Anemia', 'Asma', 'Hipertensión', 'Diabetes Mel.', 'Cardiopatías', 'Enf. Gástricas', 'Epilepsia', 'Hepatitis', 'Alergias', 'Tuberculosis', 'VIH', 'Embarazo'];
 
-const toothNumbers = [
-  ['18','17','16','15','14','13','12','11','21','22','23','24','25','26','27','28'],
-  ['48','47','46','45','44','43','42','41','31','32','33','34','35','36','37','38'],
-];
+interface ClinicalHistoryProps {
+  odontogram: OdontogramSnapshot;
+  onOdontogramChange: (snapshot: OdontogramSnapshot) => void;
+  odontogramLocked: boolean;
+  onLockOdontogram: () => void;
+}
 
-type ToothStateKey = 'sano' | 'cariado' | 'obturado' | 'corona' | 'ausente' | 'extraccion';
-
-const STATE_CFG: Record<ToothStateKey, { label: string; bg: string; border: string; dot: string; text: string }> = {
-  sano:       { label: 'Sano',               bg: '#F8FAFD', border: '#CBD5E1', dot: '#94A3B8', text: '#475569' },
-  cariado:    { label: 'Cariado',            bg: '#FEE2E2', border: '#FCA5A5', dot: '#EF4444', text: '#B91C1C' },
-  obturado:   { label: 'Obturado',           bg: '#DCFCE7', border: '#86EFAC', dot: '#22C55E', text: '#15803D' },
-  corona:     { label: 'Corona/Prótesis',    bg: '#FEF3C7', border: '#FCD34D', dot: '#F59E0B', text: '#92400E' },
-  ausente:    { label: 'Ausente/Perdido',    bg: '#E0E7FF', border: '#A5B4FC', dot: '#6366F1', text: '#3730A3' },
-  extraccion: { label: 'Extracción indicada',bg: '#FCE7F3', border: '#F9A8D4', dot: '#EC4899', text: '#9D174D' },
-};
-
-const INITIAL_STATES: Record<string, ToothStateKey> = {
-  '16': 'cariado', '11': 'cariado', '21': 'cariado',
-  '14': 'obturado', '24': 'obturado',
-  '26': 'corona',
-  '46': 'ausente',
-};
-
-export default function ClinicalHistory() {
+export default function ClinicalHistory({
+  odontogram,
+  onOdontogramChange,
+  odontogramLocked,
+  onLockOdontogram,
+}: ClinicalHistoryProps) {
   const [hemorrhage, setHemorrhage] = useState(false);
-  const [toothStates, setToothStates] = useState<Record<string, ToothStateKey>>(INITIAL_STATES);
-  const [openTooth, setOpenTooth] = useState<{
-    num: string;
-    row: number;
-    cx: number;   // center x of button in viewport
-    top: number;  // button top in viewport
-    bottom: number; // button bottom in viewport
-  } | null>(null);
-
-  const handleToothClick = (e: React.MouseEvent<HTMLButtonElement>, num: string, ri: number) => {
-    e.stopPropagation();
-    if (openTooth?.num === num) { setOpenTooth(null); return; }
-    const r = e.currentTarget.getBoundingClientRect();
-    setOpenTooth({ num, row: ri, cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
-  };
-
-  const setToothState = (num: string, state: ToothStateKey) => {
-    setToothStates(prev => ({ ...prev, [num]: state }));
-    setOpenTooth(null);
-  };
-
-  const allTeeth = toothNumbers.flat();
-  const cpod = {
-    c: allTeeth.filter(n => toothStates[n] === 'cariado').length,
-    p: allTeeth.filter(n => toothStates[n] === 'ausente').length,
-    o: allTeeth.filter(n => toothStates[n] === 'obturado').length,
-  };
 
   return (
     <>
@@ -284,141 +250,61 @@ export default function ClinicalHistory() {
 
       {/* Card E: Odontograma */}
       <CardSection letter="E" title="Odontograma y Estado Periodontal">
-        <p className="text-xs text-slate-400 mb-4">Haz clic en cualquier diente para asignar su estado clínico.</p>
-
-        <div className="overflow-x-auto pb-2">
-          {toothNumbers.map((row, ri) => (
-            <div key={ri} className="flex justify-center gap-1 mb-3">
-              {row.map(num => {
-                const stateKey = toothStates[num] ?? 'sano';
-                const cfg = STATE_CFG[stateKey];
-                const isOpen = openTooth?.num === num;
-
-                return (
-                  <div key={num} className="flex flex-col items-center gap-0.5">
-                    <button
-                      onClick={e => handleToothClick(e, num, ri)}
-                      className="w-10 h-10 rounded border-2 flex items-center justify-center text-xs font-mono font-bold transition-all hover:scale-105"
-                      style={{
-                        background: cfg.bg,
-                        borderColor: isOpen ? '#3B82F6' : cfg.border,
-                        color: cfg.text,
-                        boxShadow: isOpen ? '0 0 0 2px #BFDBFE' : undefined,
-                        transform: isOpen ? 'scale(1.1)' : undefined,
-                      }}
-                    >
-                      {num}
-                    </button>
-                    <div className="w-2 h-2 rounded-full" style={{
-                      background: stateKey !== 'sano' ? cfg.dot : 'transparent',
-                    }} />
-                  </div>
-                );
-              })}
+        <div className={`mb-4 rounded-lg border px-4 py-3 ${odontogramLocked ? 'border-slate-200 bg-slate-50' : 'border-blue-100 bg-blue-50'}`}>
+          <div className="flex items-start gap-2.5">
+            <svg className="mt-0.5 flex-shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={odontogramLocked ? '#64748B' : '#2563EB'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {odontogramLocked
+                ? <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>
+                : <><circle cx="12" cy="12" r="9" /><path d="M12 8v4" /><path d="M12 16h.01" /></>}
+            </svg>
+            <div>
+              <p className={`text-xs font-semibold ${odontogramLocked ? 'text-slate-700' : 'text-blue-800'}`}>
+                {odontogramLocked ? 'Registro inicial sellado' : 'Odontograma de ingreso'}
+              </p>
+              <p className={`mt-0.5 text-xs leading-relaxed ${odontogramLocked ? 'text-slate-500' : 'text-blue-600'}`}>
+                {odontogramLocked
+                  ? 'Este odontograma conserva el estado en que llegó el paciente. Los cambios posteriores se registran únicamente en Evolución y en la pestaña Odontograma.'
+                  : 'Mientras completas la Historia Clínica, cada cambio se replica en la pestaña Odontograma. Al guardar, esta fotografía inicial quedará inalterable.'}
+              </p>
             </div>
-          ))}
-        </div>
-
-        {/* Legend */}
-        <div className="mt-5 pt-4 border-t" style={{ borderColor: '#EEF2F7' }}>
-          <div className="flex flex-wrap gap-2.5">
-            {(Object.entries(STATE_CFG) as [ToothStateKey, typeof STATE_CFG[ToothStateKey]][]).map(([key, s]) => (
-              <div key={key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: s.bg, border: `1px solid ${s.border}` }}>
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.dot }} />
-                <span className="text-xs font-semibold" style={{ color: s.text }}>{s.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-4 gap-4 mt-4">
-            {[
-              { label: 'Cariados (C)', value: cpod.c, color: '#B91C1C' },
-              { label: 'Perdidos (P)', value: cpod.p, color: '#3730A3' },
-              { label: 'Obturados (O)', value: cpod.o, color: '#15803D' },
-              { label: 'CPO-D Total', value: cpod.c + cpod.p + cpod.o, color: '#1A4F8A' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="px-3 py-2.5 rounded-lg" style={{ background: '#F0F4F8' }}>
-                <div className="text-xs text-slate-500 mb-0.5">{label}</div>
-                <div className="text-lg font-bold" style={{ color, fontFamily: "'JetBrains Mono', monospace" }}>{value}</div>
-              </div>
-            ))}
           </div>
         </div>
+
+        <OdontogramModule
+          value={odontogram}
+          onChange={onOdontogramChange}
+          embedded
+          readOnly={odontogramLocked}
+        />
 
         <div className="mt-4 flex justify-end gap-3">
           <button
-            onClick={() => setToothStates(INITIAL_STATES)}
+            onClick={() => onOdontogramChange(createDefaultOdontogramSnapshot())}
+            disabled={odontogramLocked}
             className="px-4 py-2 text-sm font-semibold rounded-md border transition-colors hover:bg-slate-50"
-            style={{ borderColor: '#D1D9E6', color: '#475569' }}
+            style={{ borderColor: '#D1D9E6', color: '#475569', opacity: odontogramLocked ? 0.45 : 1 }}
           >
             Restaurar
           </button>
           <button
-            onClick={() => setToothStates({})}
+            onClick={() => onOdontogramChange(createHealthyOdontogramSnapshot())}
+            disabled={odontogramLocked}
             className="px-4 py-2 text-sm font-semibold rounded-md border transition-colors hover:bg-red-50"
-            style={{ borderColor: '#FCA5A5', color: '#B91C1C' }}
+            style={{ borderColor: '#FCA5A5', color: '#B91C1C', opacity: odontogramLocked ? 0.45 : 1 }}
           >
             Limpiar
           </button>
-          <button className="px-4 py-2 text-sm font-semibold rounded-md text-white transition-colors hover:opacity-90" style={{ background: '#1A4F8A' }}>
-            Guardar Historia Clínica
+          <button
+            onClick={onLockOdontogram}
+            disabled={odontogramLocked}
+            className="px-4 py-2 text-sm font-semibold rounded-md text-white transition-colors hover:opacity-90 disabled:cursor-default"
+            style={{ background: odontogramLocked ? '#64748B' : '#1A4F8A' }}
+          >
+            {odontogramLocked ? 'Historia clínica registrada' : 'Guardar Historia Clínica'}
           </button>
         </div>
       </CardSection>
     </div>
-    {/* Tooth state popover — rendered via portal so it escapes overflow:hidden ancestors */}
-    {openTooth && createPortal(
-      <>
-        {/* backdrop */}
-        <div className="fixed inset-0 z-40" onClick={() => setOpenTooth(null)} />
-
-        {/* popover */}
-        <div
-          className="fixed z-50 rounded-xl overflow-hidden"
-          style={{
-            width: 176,
-            left: Math.max(8, Math.min(openTooth.cx - 88, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 184)),
-            ...(openTooth.row === 1
-              ? { bottom: (typeof window !== 'undefined' ? window.innerHeight : 800) - openTooth.top + 6 }
-              : { top: openTooth.bottom + 6 }),
-            background: '#FFFFFF',
-            border: '1px solid #E2E8F0',
-            boxShadow: '0 16px 48px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.1)',
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="px-3 py-2 border-b flex items-center justify-between"
-            style={{ background: '#F8FAFD', borderColor: '#F1F5F9' }}>
-            <span className="text-xs font-bold text-slate-600">Diente #{openTooth.num}</span>
-            <button onClick={() => setOpenTooth(null)}
-              className="text-slate-400 hover:text-slate-600 text-xs leading-none">✕</button>
-          </div>
-          <div className="py-1">
-            {(Object.entries(STATE_CFG) as [ToothStateKey, typeof STATE_CFG[ToothStateKey]][]).map(([key, s]) => {
-              const current = toothStates[openTooth.num] ?? 'sano';
-              return (
-                <button
-                  key={key}
-                  onClick={() => setToothState(openTooth.num, key)}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left hover:bg-blue-50 transition-colors"
-                >
-                  <div className="w-4 h-4 rounded border-2 flex-shrink-0"
-                    style={{ background: s.bg, borderColor: s.border }} />
-                  <span className="text-sm text-slate-700 font-medium">{s.label}</span>
-                  {current === key && (
-                    <svg className="ml-auto flex-shrink-0" width="12" height="12" viewBox="0 0 24 24"
-                      fill="none" stroke="#3B82F6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </>,
-      document.body
-    )}
     </>
   );
 }

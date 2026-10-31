@@ -139,7 +139,7 @@ export default function Budget({ patientName, patientCI }: { patientName: string
   }
 
   return (
-    <div className="budget-print-root mx-auto max-w-6xl space-y-4 pb-8">
+    <div className="budget-print-root mx-auto w-full min-w-0 max-w-6xl space-y-4 pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div>
           <div className="flex items-center gap-2">
@@ -150,7 +150,7 @@ export default function Budget({ patientName, patientCI }: { patientName: string
           </div>
           <p className="mt-1 text-xs text-slate-500">Plan económico detallado para revisión y aceptación del paciente.</p>
         </div>
-        <div className="budget-actions flex items-center gap-2">
+        <div className="budget-actions flex min-w-0 flex-wrap items-center justify-end gap-2">
           <button onClick={() => window.print()} className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
             <span aria-hidden="true">⌁</span> Imprimir
           </button>
@@ -169,18 +169,18 @@ export default function Budget({ patientName, patientCI }: { patientName: string
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
-        <div className="space-y-4">
+      <div className="grid min-w-0 gap-4">
+        <div className="min-w-0 space-y-4">
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700">Clínica Dental DOCK</p>
                 <h3 className="mt-1 text-lg font-bold text-slate-900">{patientName}</h3>
                 <p className="text-xs text-slate-500">C.I. {patientCI || '—'}</p>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Emisión<input type="date" value={issuedAt} onChange={(event) => setIssuedAt(event.target.value)} className="mt-1 block rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-700" /></label>
-                <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Válido hasta<input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} className="mt-1 block rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-700" /></label>
+              <div className="grid min-w-0 grid-cols-2 gap-2">
+                <label className="min-w-0 text-[10px] font-bold uppercase tracking-wide text-slate-500">Emisión<input type="date" value={issuedAt} onChange={(event) => setIssuedAt(event.target.value)} className="mt-1 block w-full min-w-0 rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-700" /></label>
+                <label className="min-w-0 text-[10px] font-bold uppercase tracking-wide text-slate-500">Válido hasta<input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} className="mt-1 block w-full min-w-0 rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-700" /></label>
               </div>
             </div>
             <label className="text-xs font-semibold text-slate-700">Diagnóstico y plan clínico
@@ -189,40 +189,68 @@ export default function Budget({ patientName, patientCI }: { patientName: string
           </section>
 
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5">
               <div><h3 className="text-sm font-bold text-slate-900">Tratamientos y procedimientos</h3><p className="mt-0.5 text-xs text-slate-400">{items.length} partidas en el plan</p></div>
               <button onClick={addItem} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100">+ Añadir tratamiento</button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left">
-                <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                  <tr><th className="px-4 py-2.5">Fase</th><th className="px-3 py-2.5">Tratamiento</th><th className="px-3 py-2.5">Pieza / zona</th><th className="px-3 py-2.5 text-center">Cant.</th><th className="px-3 py-2.5 text-right">P. unitario</th><th className="px-4 py-2.5 text-right">Importe</th><th /></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {items.map((item) => (
-                    <tr key={item.id} className="group">
-                      <td className="px-4 py-3"><select value={item.phase} onChange={(event) => updateItem(item.id, 'phase', event.target.value)} className="w-28 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600">{['Diagnóstico', 'Inicial', 'Quirúrgica', 'Rehabilitación', 'Mantenimiento'].map((phase) => <option key={phase}>{phase}</option>)}</select></td>
-                      <td className="px-3 py-3"><input value={item.treatment} onChange={(event) => updateItem(item.id, 'treatment', event.target.value)} placeholder="Descripción del procedimiento" className="w-full min-w-52 rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-700" /></td>
-                      <td className="px-3 py-3"><input value={item.tooth} onChange={(event) => updateItem(item.id, 'tooth', event.target.value)} placeholder="Ej. pieza 36" className="w-24 rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-700" /></td>
-                      <td className="px-3 py-3"><input type="number" min="1" value={item.quantity} onChange={(event) => updateItem(item.id, 'quantity', Number(event.target.value))} className="w-16 rounded-md border border-slate-200 px-2 py-1.5 text-center text-xs text-slate-700" /></td>
-                      <td className="px-3 py-3"><input type="number" min="0" value={item.unitPrice} onChange={(event) => updateItem(item.id, 'unitPrice', Number(event.target.value))} className="w-24 rounded-md border border-slate-200 px-2 py-1.5 text-right text-xs text-slate-700" /></td>
-                      <td className="px-4 py-3 text-right text-xs font-bold text-slate-800">Bs. {money(item.quantity * item.unitPrice)}</td>
-                      <td className="pr-3"><button onClick={() => setItems((current) => current.filter((row) => row.id !== item.id))} disabled={items.length === 1} title="Eliminar partida" className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-20">×</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="divide-y divide-slate-100">
+              {items.map((item, index) => (
+                <div key={item.id} className="min-w-0 space-y-3 p-4">
+                  <div className="flex min-w-0 flex-wrap items-end gap-3">
+                    <label className="min-w-0 flex-[1_1_140px] text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      Fase
+                      <select value={item.phase} onChange={(event) => updateItem(item.id, 'phase', event.target.value)} className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-600">
+                        {['Diagnóstico', 'Inicial', 'Quirúrgica', 'Rehabilitación', 'Mantenimiento'].map((phase) => <option key={phase}>{phase}</option>)}
+                      </select>
+                    </label>
+                    <label className="min-w-0 flex-[3_1_260px] text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      Tratamiento {index + 1}
+                      <input value={item.treatment} onChange={(event) => updateItem(item.id, 'treatment', event.target.value)} placeholder="Descripción del procedimiento" className="mt-1 w-full rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-700" />
+                    </label>
+                    <button onClick={() => setItems((current) => current.filter((row) => row.id !== item.id))} disabled={items.length === 1} title="Eliminar partida" aria-label={`Eliminar tratamiento ${index + 1}`} className="mb-0.5 h-8 w-8 flex-shrink-0 rounded-md border border-slate-200 text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-500 disabled:opacity-20">×</button>
+                  </div>
+                  <div
+                    className="grid min-w-0 gap-3"
+                    style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(120px, 100%), 1fr))' }}
+                  >
+                    <label className="min-w-0 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      Pieza / zona
+                      <input value={item.tooth} onChange={(event) => updateItem(item.id, 'tooth', event.target.value)} placeholder="Ej. pieza 36" className="mt-1 w-full min-w-0 rounded-md border border-slate-200 px-2 py-2 text-xs text-slate-700" />
+                    </label>
+                    <label className="min-w-0 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      Cantidad
+                      <input type="number" min="1" value={item.quantity} onChange={(event) => updateItem(item.id, 'quantity', Number(event.target.value))} className="mt-1 w-full min-w-0 rounded-md border border-slate-200 px-2 py-2 text-right text-xs text-slate-700" />
+                    </label>
+                    <label className="min-w-0 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      Precio unitario
+                      <span className="relative mt-1 block">
+                        <span className="pointer-events-none absolute left-2 top-2 text-xs text-slate-400">Bs.</span>
+                        <input type="number" min="0" value={item.unitPrice} onChange={(event) => updateItem(item.id, 'unitPrice', Number(event.target.value))} className="w-full min-w-0 rounded-md border border-slate-200 py-2 pl-8 pr-2 text-right text-xs text-slate-700" />
+                      </span>
+                    </label>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Importe</div>
+                      <div className="mt-1 flex h-[34px] items-center justify-end rounded-md bg-slate-50 px-2 font-mono text-xs font-bold text-slate-800">
+                        Bs. {money(item.quantity * item.unitPrice)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
 
-          <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-2">
+          <section
+            className="grid min-w-0 gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))' }}
+          >
             <label className="text-xs font-semibold text-slate-700">Condiciones de pago<textarea value={paymentTerms} onChange={(event) => setPaymentTerms(event.target.value)} rows={4} className="mt-2 w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-700" /></label>
             <label className="text-xs font-semibold text-slate-700">Observaciones para el paciente<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} className="mt-2 w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-700" /></label>
           </section>
         </div>
 
-        <aside className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-0">
+        <aside className="min-w-0 space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-sm font-bold text-slate-900">Resumen económico</h3>
             <div className="mt-4 space-y-3 border-b border-slate-100 pb-4 text-sm">
               <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="font-mono text-slate-800">Bs. {money(subtotal)}</strong></div>

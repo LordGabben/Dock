@@ -208,6 +208,24 @@ input, select, textarea {
   color: #991B1B;
 }
 
+.patient-tabs-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.patient-tabs-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.patient-tabs-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.patient-tabs-scroll::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
+
 @media print {
   body {
     overflow: visible !important;

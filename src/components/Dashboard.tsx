@@ -4,6 +4,7 @@ interface Appointment {
   treatment: string;
   type: 'ortodoncia' | 'cirugia' | 'limpieza' | 'endodoncia' | 'blanqueamiento' | 'restauracion';
   room: string;
+  isNew?: boolean;
 }
 
 const typeConfig = {
@@ -17,13 +18,13 @@ const typeConfig = {
 
 const appointments: Appointment[] = [
   { time: '08:00', patient: 'Ana Sofía Ríos', treatment: 'Control de Ortodoncia', type: 'ortodoncia', room: 'Box 1' },
-  { time: '09:00', patient: 'Roberto Vega', treatment: 'Endodoncia Molar #36', type: 'endodoncia', room: 'Box 2' },
+  { time: '09:00', patient: 'Roberto Vega', treatment: 'Endodoncia Molar #36', type: 'endodoncia', room: 'Box 2', isNew: true },
   { time: '10:00', patient: 'María Elena Condori', treatment: 'Limpieza y Detartraje', type: 'limpieza', room: 'Box 1' },
   { time: '11:00', patient: 'Carlos R. Mamani', treatment: 'Control Post-operatorio', type: 'cirugia', room: 'Box 3' },
   { time: '12:30', patient: 'Patricia Luna', treatment: 'Blanqueamiento Dental', type: 'blanqueamiento', room: 'Box 2' },
   { time: '14:00', patient: 'Diego Alvarado', treatment: 'Obturación y Restauración', type: 'restauracion', room: 'Box 1' },
   { time: '15:30', patient: 'Juan Pablo Flores', treatment: 'Extracción Molar Juicio', type: 'cirugia', room: 'Box 3' },
-  { time: '16:30', patient: 'Sofía Mendoza', treatment: 'Colocación de Corona', type: 'restauracion', room: 'Box 2' },
+  { time: '16:30', patient: 'Sofía Mendoza', treatment: 'Colocación de Corona', type: 'restauracion', room: 'Box 2', isNew: true },
 ];
 
 const today = new Date();
@@ -38,7 +39,7 @@ const kpis = [
   { label: 'Pendiente Cobrar', value: 'Bs. 6,800', sub: '5 pacientes en mora', color: '#D97706', bg: '#FFFBEB' },
 ];
 
-export default function Dashboard({ onViewChange }: { onViewChange: (v: 'pacientes') => void }) {
+export default function Dashboard({ onOpenPatient }: { onOpenPatient: (name: string, isNew: boolean) => void }) {
   return (
     <div className="h-full overflow-y-auto p-6">
       {/* KPIs */}
@@ -130,7 +131,17 @@ export default function Dashboard({ onViewChange }: { onViewChange: (v: 'pacient
               return (
                 <div
                   key={i}
-                  className="px-5 py-3 border-b flex items-center gap-4 hover:bg-slate-50 transition-colors group"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Abrir historia clínica de ${appt.patient}`}
+                  onClick={() => onOpenPatient(appt.patient, appt.isNew ?? false)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onOpenPatient(appt.patient, appt.isNew ?? false);
+                    }
+                  }}
+                  className="px-5 py-3 border-b flex items-center gap-4 hover:bg-slate-50 transition-colors group cursor-pointer focus:outline-none focus:bg-blue-50"
                   style={{ borderColor: '#F1F5F9' }}
                 >
                   <div className="text-center flex-shrink-0 w-12">
@@ -146,7 +157,10 @@ export default function Dashboard({ onViewChange }: { onViewChange: (v: 'pacient
                     {conf.label}
                   </span>
                   <button
-                    onClick={() => onViewChange('pacientes')}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenPatient(appt.patient, appt.isNew ?? false);
+                    }}
                     className="flex-shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-md transition-all"
                     style={{ background: '#1A4F8A' }}
                   >

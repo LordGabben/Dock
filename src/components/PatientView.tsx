@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ClinicalHistory from './tabs/ClinicalHistory';
 import Gallery from './tabs/Gallery';
 import Financial from './tabs/Financial';
 import Evolution from './tabs/Evolution';
-import OdontogramModule from './modules/OdontogramModule';
+import OdontogramModule, {
+  createDefaultOdontogramSnapshot,
+  type OdontogramSnapshot,
+} from './modules/OdontogramModule';
 import ConsentModule from './modules/ConsentModule';
 import Budget from './tabs/Budget';
 
@@ -44,11 +47,14 @@ const PATIENT_PROFILES: Patient[] = [
 // Map calendar short name → list index for routing
 const NAME_TO_INDEX: Record<string, number> = {
   'Ana S. Ríos':       3,
+  'Ana Sofía Ríos':    3,
   'María E. Condori':  1,
+  'María Elena Condori': 1,
   'Carlos R. Mamani':  0,
   'Patricia Luna':     5,
   'Diego Alvarado':    4,
   'Juan P. Flores':    2,
+  'Juan Pablo Flores': 2,
 };
 
 const BASE_LIST = [
@@ -59,6 +65,11 @@ const BASE_LIST = [
   { name: 'Diego Alvarado S.', ci: '8134567 SC', lastVisit: '25 Feb 2024', balance: 800, status: 'Mora', isNew: false },
   { name: 'Patricia Luna T.', ci: '7456789 LP', lastVisit: '20 Feb 2024', balance: 2200, status: 'Activo', isNew: false },
 ];
+
+const cloneOdontogram = (snapshot: OdontogramSnapshot): OdontogramSnapshot => ({
+  upper: snapshot.upper.map(tooth => ({ ...tooth })),
+  lower: snapshot.lower.map(tooth => ({ ...tooth })),
+});
 
 const TAB_EMPTY_HINTS: Record<Tab, { icon: string; title: string; desc: string; action: string }> = {
   historia:       { icon: '📋', title: 'Historia Clínica vacía', desc: 'Registra los datos de filiación, antecedentes y examen físico del paciente.', action: 'Completar Historia Clínica' },
@@ -118,6 +129,22 @@ export default function PatientView({ calendarPatient }: Props) {
   const [selectedPatient, setSelectedPatient] = useState(initialIdx);
   const [search, setSearch] = useState('');
   const [extraPatients] = useState<typeof BASE_LIST>(initialExtras);
+  const [patientPanelWidth, setPatientPanelWidth] = useState(256);
+  const [widthLoaded, setWidthLoaded] = useState(false);
+  const [initialOdontograms, setInitialOdontograms] = useState<Record<string, OdontogramSnapshot>>({});
+  const [currentOdontograms, setCurrentOdontograms] = useState<Record<string, OdontogramSnapshot>>({});
+  const [lockedOdontograms, setLockedOdontograms] = useState<Record<string, boolean>>({});
+  const resizeStart = useRef({ x: 0, width: 256 });
+
+  useEffect(() => {
+    const savedWidth = Number(localStorage.getItem('dock-patient-list-width'));
+    if (savedWidth >= 210 && savedWidth <= 380) setPatientPanelWidth(savedWidth);
+    setWidthLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (widthLoaded) localStorage.setItem('dock-patient-list-width', String(patientPanelWidth));
+  }, [patientPanelWidth, widthLoaded]);
 
   const patientList = [...extraPatients, ...BASE_LIST];
 
@@ -145,11 +172,52 @@ export default function PatientView({ calendarPatient }: Props) {
   };
 
   const activeProfile = getProfile();
+  const patientKey = `${selectedPatient}:${activeProfile.ci}:${activeProfile.name}`;
+  const initialOdontogram = initialOdontograms[patientKey] ?? createDefaultOdontogramSnapshot();
+  const currentOdontogram = currentOdontograms[patientKey] ?? initialOdontogram;
+  const isInitialOdontogramLocked = Boolean(lockedOdontograms[patientKey]);
+
+  const handleInitialOdontogramChange = (snapshot: OdontogramSnapshot) => {
+    if (isInitialOdontogramLocked) return;
+
+    setInitialOdontograms(previous => ({
+      ...previous,
+      [patientKey]: cloneOdontogram(snapshot),
+    }));
+    setCurrentOdontograms(previous => ({
+      ...previous,
+      [patientKey]: cloneOdontogram(snapshot),
+    }));
+  };
+
+  const lockInitialOdontogram = () => {
+    if (isInitialOdontogramLocked) return;
+
+    setInitialOdontograms(previous => ({
+      ...previous,
+      [patientKey]: cloneOdontogram(initialOdontogram),
+    }));
+    setCurrentOdontograms(previous => ({
+      ...previous,
+      [patientKey]: cloneOdontogram(initialOdontogram),
+    }));
+    setLockedOdontograms(previous => ({ ...previous, [patientKey]: true }));
+  };
+
+  const handleCurrentOdontogramChange = (snapshot: OdontogramSnapshot) => {
+    setCurrentOdontograms(previous => ({
+      ...previous,
+      [patientKey]: cloneOdontogram(snapshot),
+    }));
+  };
 
   return (
     <div className="flex h-full gap-0 overflow-hidden">
       {/* Patient list sidebar */}
-      <div className="w-64 flex-shrink-0 flex flex-col border-r overflow-hidden" style={{ background: '#FFFFFF', borderColor: '#E2E8F0' }}>
+      <div
+        className="relative flex-shrink-0 flex flex-col border-r overflow-visible"
+        style={{ width: `${patientPanelWidth}px`, background: '#FFFFFF', borderColor: '#E2E8F0' }}
+      >
         <div className="px-4 py-4 border-b" style={{ borderColor: '#EEF2F7' }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-slate-800 text-sm">Pacientes</h2>
@@ -172,7 +240,7 @@ export default function PatientView({ calendarPatient }: Props) {
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {filtered.map((p, i) => {
             // find the real index in patientList (not filtered)
             const realIdx = patientList.indexOf(p);
@@ -206,6 +274,33 @@ export default function PatientView({ calendarPatient }: Props) {
               </button>
             );
           })}
+        </div>
+        <div
+          role="separator"
+          aria-label="Cambiar ancho de la lista de pacientes"
+          aria-orientation="vertical"
+          aria-valuemin={210}
+          aria-valuemax={380}
+          aria-valuenow={patientPanelWidth}
+          tabIndex={0}
+          title="Arrastra para cambiar el ancho"
+          onPointerDown={(event) => {
+            resizeStart.current = { x: event.clientX, width: patientPanelWidth };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+            const nextWidth = resizeStart.current.width + event.clientX - resizeStart.current.x;
+            setPatientPanelWidth(Math.min(380, Math.max(210, nextWidth)));
+          }}
+          onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft') setPatientPanelWidth(width => Math.max(210, width - 16));
+            if (event.key === 'ArrowRight') setPatientPanelWidth(width => Math.min(380, width + 16));
+          }}
+          className="absolute right-0 top-0 bottom-0 z-30 w-2 translate-x-1/2 cursor-col-resize touch-none group"
+        >
+          <span className="absolute left-1/2 top-1/2 h-12 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100" />
         </div>
       </div>
 
@@ -329,7 +424,15 @@ export default function PatientView({ calendarPatient }: Props) {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-0 mt-5 border-b overflow-x-auto" style={{ borderColor: '#E2E8F0', marginLeft: '-24px', marginRight: '-24px', paddingLeft: '24px', scrollbarWidth: 'none' }}>
+          <div
+            className="patient-tabs-scroll flex gap-0 mt-5 border-b overflow-x-auto"
+            style={{ borderColor: '#E2E8F0', marginLeft: '-24px', marginRight: '-24px', paddingLeft: '24px' }}
+            onWheel={(event) => {
+              if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+                event.currentTarget.scrollLeft += event.deltaY;
+              }
+            }}
+          >
             {tabs.map(tab => (
               <button
                 key={tab.id}
@@ -352,12 +455,36 @@ export default function PatientView({ calendarPatient }: Props) {
             <NewPatientEmptyState tab={activeTab} patientName={activeProfile.name} />
           ) : (
             <>
-              {activeTab === 'historia'       && <ClinicalHistory />}
+              {activeTab === 'historia'       && (
+                <ClinicalHistory
+                  odontogram={initialOdontogram}
+                  onOdontogramChange={handleInitialOdontogramChange}
+                  odontogramLocked={isInitialOdontogramLocked}
+                  onLockOdontogram={lockInitialOdontogram}
+                />
+              )}
               {activeTab === 'galeria'        && <Gallery />}
               {activeTab === 'financiero'     && <Financial />}
               {activeTab === 'presupuesto'    && <Budget patientName={activeProfile.name} patientCI={activeProfile.ci} />}
               {activeTab === 'evolucion'      && <Evolution />}
-              {activeTab === 'odontograma'    && <OdontogramModule />}
+              {activeTab === 'odontograma'    && (
+                <div className="space-y-3">
+                  <div className={`rounded-xl border px-4 py-3 ${isInitialOdontogramLocked ? 'border-emerald-100 bg-emerald-50' : 'border-blue-100 bg-blue-50'}`}>
+                    <p className={`text-xs font-semibold ${isInitialOdontogramLocked ? 'text-emerald-800' : 'text-blue-800'}`}>
+                      {isInitialOdontogramLocked ? 'Odontograma evolutivo independiente' : 'Copia vinculada al registro inicial'}
+                    </p>
+                    <p className={`mt-0.5 text-xs ${isInitialOdontogramLocked ? 'text-emerald-600' : 'text-blue-600'}`}>
+                      {isInitialOdontogramLocked
+                        ? 'Los cambios realizados aquí no alteran el odontograma inicial de la Historia Clínica.'
+                        : 'Los cambios de la Historia Clínica se replican aquí hasta guardar y sellar el registro inicial.'}
+                    </p>
+                  </div>
+                  <OdontogramModule
+                    value={currentOdontogram}
+                    onChange={handleCurrentOdontogramChange}
+                  />
+                </div>
+              )}
               {activeTab === 'consentimiento' && <ConsentModule />}
             </>
           )}

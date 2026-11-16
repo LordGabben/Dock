@@ -84,6 +84,11 @@ export interface Config {
     folders: Folder;
     tags: Tag;
     budgets: Budget;
+    tenants: Tenant;
+    'knowledge-items': KnowledgeItem;
+    conversations: Conversation;
+    messages: Message;
+    appointments: Appointment;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -97,6 +102,11 @@ export interface Config {
     folders: FoldersSelect<false> | FoldersSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     budgets: BudgetsSelect<false> | BudgetsSelect<true>;
+    tenants: TenantsSelect<false> | TenantsSelect<true>;
+    'knowledge-items': KnowledgeItemsSelect<false> | KnowledgeItemsSelect<true>;
+    conversations: ConversationsSelect<false> | ConversationsSelect<true>;
+    messages: MessagesSelect<false> | MessagesSelect<true>;
+    appointments: AppointmentsSelect<false> | AppointmentsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -147,6 +157,10 @@ export interface AdminAuthOperations {
  */
 export interface Admin {
   id: string;
+  /**
+   * Aísla todos los datos operativos de este administrador por clínica.
+   */
+  tenant?: (string | null) | Tenant;
   figmaHandle?: string | null;
   figmaImageUrl?: string | null;
   userGroups?: string[] | null;
@@ -163,6 +177,38 @@ export interface Admin {
   updatedAt: string;
   createdAt: string;
   collection: 'admins';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tenants".
+ */
+export interface Tenant {
+  id: string;
+  name: string;
+  connectionMode: 'byoa' | 'embedded';
+  connectionStatus: 'pending' | 'connected' | 'error' | 'disabled';
+  whatsappPhoneNumberId?: string | null;
+  whatsappWabaId?: string | null;
+  /**
+   * Referencia dock/whatsapp/<tenantId> de Supabase Vault. La clínica principal puede usar el fallback WHATSAPP_ACCESS_TOKEN_PRIMARY.
+   */
+  credentialKey?: string | null;
+  agentConfig?: {
+    enabled?: boolean | null;
+    agentName?: string | null;
+    systemPrompt?: string | null;
+    toolsEnabled?: boolean | null;
+  };
+  createdBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -287,6 +333,107 @@ export interface Budget {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "knowledge-items".
+ */
+export interface KnowledgeItem {
+  id: string;
+  tenant: string | Tenant;
+  category: 'pricing' | 'schedule' | 'faq' | 'protocols' | 'services';
+  title: string;
+  content: string;
+  keywords?:
+    | {
+        keyword: string;
+        id?: string | null;
+      }[]
+    | null;
+  active?: boolean | null;
+  createdBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "conversations".
+ */
+export interface Conversation {
+  id: string;
+  tenant: string | Tenant;
+  patientPhone: string;
+  patientName?: string | null;
+  status: 'ai_active' | 'human_handoff' | 'closed';
+  unreadCount?: number | null;
+  lastMessagePreview?: string | null;
+  lastMessageAt?: string | null;
+  createdBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "messages".
+ */
+export interface Message {
+  id: string;
+  tenant: string | Tenant;
+  conversation: string | Conversation;
+  sender: 'patient' | 'ai_agent' | 'doctor';
+  content: string;
+  whatsappMessageId?: string | null;
+  deliveryStatus?: ('received' | 'sent' | 'delivered' | 'read' | 'failed') | null;
+  toolExecuted?: string | null;
+  createdBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "appointments".
+ */
+export interface Appointment {
+  id: string;
+  tenant: string | Tenant;
+  patientName: string;
+  patientPhone: string;
+  date: string;
+  time: string;
+  treatmentReason: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  createdByAgent?: boolean | null;
+  createdBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedBy?: {
+    relationTo: 'admins';
+    value: string | Admin;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -328,6 +475,26 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'budgets';
         value: string | Budget;
+      } | null)
+    | ({
+        relationTo: 'tenants';
+        value: string | Tenant;
+      } | null)
+    | ({
+        relationTo: 'knowledge-items';
+        value: string | KnowledgeItem;
+      } | null)
+    | ({
+        relationTo: 'conversations';
+        value: string | Conversation;
+      } | null)
+    | ({
+        relationTo: 'messages';
+        value: string | Message;
+      } | null)
+    | ({
+        relationTo: 'appointments';
+        value: string | Appointment;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -398,6 +565,7 @@ export interface PayloadLlmInstruction {
  * via the `definition` "admins_select".
  */
 export interface AdminsSelect<T extends boolean = true> {
+  tenant?: T;
   figmaHandle?: T;
   figmaImageUrl?: T;
   userGroups?: T;
@@ -507,6 +675,103 @@ export interface BudgetsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tenants_select".
+ */
+export interface TenantsSelect<T extends boolean = true> {
+  name?: T;
+  connectionMode?: T;
+  connectionStatus?: T;
+  whatsappPhoneNumberId?: T;
+  whatsappWabaId?: T;
+  credentialKey?: T;
+  agentConfig?:
+    | T
+    | {
+        enabled?: T;
+        agentName?: T;
+        systemPrompt?: T;
+        toolsEnabled?: T;
+      };
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "knowledge-items_select".
+ */
+export interface KnowledgeItemsSelect<T extends boolean = true> {
+  tenant?: T;
+  category?: T;
+  title?: T;
+  content?: T;
+  keywords?:
+    | T
+    | {
+        keyword?: T;
+        id?: T;
+      };
+  active?: T;
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "conversations_select".
+ */
+export interface ConversationsSelect<T extends boolean = true> {
+  tenant?: T;
+  patientPhone?: T;
+  patientName?: T;
+  status?: T;
+  unreadCount?: T;
+  lastMessagePreview?: T;
+  lastMessageAt?: T;
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "messages_select".
+ */
+export interface MessagesSelect<T extends boolean = true> {
+  tenant?: T;
+  conversation?: T;
+  sender?: T;
+  content?: T;
+  whatsappMessageId?: T;
+  deliveryStatus?: T;
+  toolExecuted?: T;
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "appointments_select".
+ */
+export interface AppointmentsSelect<T extends boolean = true> {
+  tenant?: T;
+  patientName?: T;
+  patientPhone?: T;
+  date?: T;
+  time?: T;
+  treatmentReason?: T;
+  status?: T;
+  createdByAgent?: T;
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -588,7 +853,17 @@ export interface CollectionsWidget {
 export interface CollectionQueryWidget {
   data?: {
     title?: string | null;
-    relatedCollection: 'admins' | 'media' | 'folders' | 'tags' | 'budgets';
+    relatedCollection:
+      | 'admins'
+      | 'media'
+      | 'folders'
+      | 'tags'
+      | 'budgets'
+      | 'tenants'
+      | 'knowledge-items'
+      | 'conversations'
+      | 'messages'
+      | 'appointments';
     where?:
       | {
           [k: string]: unknown;
@@ -610,7 +885,20 @@ export interface CollectionQueryWidget {
  */
 export interface ActivityWidget {
   data?: {
-    excludedCollections?: ('admins' | 'media' | 'folders' | 'tags' | 'budgets')[] | null;
+    excludedCollections?:
+      | (
+          | 'admins'
+          | 'media'
+          | 'folders'
+          | 'tags'
+          | 'budgets'
+          | 'tenants'
+          | 'knowledge-items'
+          | 'conversations'
+          | 'messages'
+          | 'appointments'
+        )[]
+      | null;
   };
   width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
 }

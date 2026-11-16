@@ -8,6 +8,11 @@ import { Media } from './collections/Media'
 import { Folders } from './collections/Folders'
 import { Tags } from './collections/Tags'
 import { Budgets } from './collections/Budgets'
+import { Appointments } from './collections/Appointments'
+import { Conversations } from './collections/Conversations'
+import { KnowledgeItems } from './collections/KnowledgeItems'
+import { Messages } from './collections/Messages'
+import { Tenants } from './collections/Tenants'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -29,9 +34,20 @@ export default buildFigmaConfig({
   },
   i18n: {
     fallbackLanguage: 'es',
-    supportedLanguages: { 'es': adminLanguage },
+    supportedLanguages: { es: adminLanguage },
   },
-  collections: [Admins, Media, Folders, Tags, Budgets],
+  collections: [
+    Admins,
+    Media,
+    Folders,
+    Tags,
+    Budgets,
+    Tenants,
+    KnowledgeItems,
+    Conversations,
+    Messages,
+    Appointments,
+  ],
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },

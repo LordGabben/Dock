@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
+import {
+  deleteKnowledgeItem,
+  getTenantKnowledge,
+  getWhatsAppWorkspace,
+  saveKnowledgeItem,
+} from '@/app/(frontend)/actions/whatsapp'
+import type { KnowledgeItem } from '@/payload-types'
 
 type KnowledgeCategory = 'Servicios' | 'Precios' | 'Agenda' | 'Preparación' | 'Cuidados'
 
@@ -21,6 +28,34 @@ const CATEGORIES: KnowledgeCategory[] = [
   'Preparación',
   'Cuidados',
 ]
+
+const CATEGORY_TO_PAYLOAD = {
+  Servicios: 'services',
+  Precios: 'pricing',
+  Agenda: 'schedule',
+  Preparación: 'faq',
+  Cuidados: 'protocols',
+} as const
+
+const CATEGORY_FROM_PAYLOAD: Record<KnowledgeItem['category'], KnowledgeCategory> = {
+  services: 'Servicios',
+  pricing: 'Precios',
+  schedule: 'Agenda',
+  faq: 'Preparación',
+  protocols: 'Cuidados',
+}
+
+function mapKnowledgeItem(item: KnowledgeItem): KnowledgeEntry {
+  return {
+    id: item.id,
+    title: item.title,
+    content: item.content,
+    category: CATEGORY_FROM_PAYLOAD[item.category],
+    keywords: item.keywords?.map((entry) => entry.keyword) ?? [],
+    enabled: item.active !== false,
+    updatedAt: item.updatedAt,
+  }
+}
 
 const DEFAULT_ENTRIES: KnowledgeEntry[] = [
   {
@@ -149,6 +184,10 @@ export default function KnowledgeBaseView() {
   const [pendingDelete, setPendingDelete] = useState<KnowledgeEntry | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [ready, setReady] = useState(false)
+  const [tenantId, setTenantId] = useState<string>()
+  const [payloadConnected, setPayloadConnected] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [isPending, startTransition] = useTransition()
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -164,8 +203,23 @@ export default function KnowledgeBaseView() {
   }, [])
 
   useEffect(() => {
-    if (ready) localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
-  }, [entries, ready])
+    if (ready && !payloadConnected) localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
+  }, [entries, payloadConnected, ready])
+
+  useEffect(() => {
+    startTransition(async () => {
+      const workspace = await getWhatsAppWorkspace()
+      if (!workspace.ok || !workspace.data.tenant) return
+      setTenantId(workspace.data.tenant.id)
+      const result = await getTenantKnowledge(workspace.data.tenant.id)
+      if (!result.ok) {
+        setNotice(result.error)
+        return
+      }
+      setEntries(result.data.map(mapKnowledgeItem))
+      setPayloadConnected(true)
+    })
+  }, [])
 
   const filteredEntries = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase('es')
@@ -210,6 +264,32 @@ export default function KnowledgeBaseView() {
       .map((keyword) => keyword.trim())
       .filter(Boolean)
 
+    if (payloadConnected && tenantId) {
+      startTransition(async () => {
+        const result = await saveKnowledgeItem({
+          id: editingId || undefined,
+          tenantId,
+          category: CATEGORY_TO_PAYLOAD[form.category],
+          title,
+          content,
+          keywords,
+          active: form.enabled,
+        })
+        if (!result.ok) {
+          setNotice(result.error)
+          return
+        }
+        const mapped = mapKnowledgeItem(result.data)
+        setEntries((current) =>
+          editingId
+            ? current.map((entry) => (entry.id === editingId ? mapped : entry))
+            : [mapped, ...current],
+        )
+        setShowEditor(false)
+      })
+      return
+    }
+
     if (editingId) {
       setEntries((current) =>
         current.map((entry) =>
@@ -237,8 +317,52 @@ export default function KnowledgeBaseView() {
 
   const removeEntry = () => {
     if (!pendingDelete) return
+    if (payloadConnected && tenantId) {
+      startTransition(async () => {
+        const result = await deleteKnowledgeItem(tenantId, pendingDelete.id)
+        if (!result.ok) {
+          setNotice(result.error)
+          return
+        }
+        setEntries((current) => current.filter((entry) => entry.id !== pendingDelete.id))
+        setPendingDelete(null)
+      })
+      return
+    }
     setEntries((current) => current.filter((entry) => entry.id !== pendingDelete.id))
     setPendingDelete(null)
+  }
+
+  const toggleEntry = (entry: KnowledgeEntry) => {
+    const nextEnabled = !entry.enabled
+    if (payloadConnected && tenantId) {
+      startTransition(async () => {
+        const result = await saveKnowledgeItem({
+          id: entry.id,
+          tenantId,
+          category: CATEGORY_TO_PAYLOAD[entry.category],
+          title: entry.title,
+          content: entry.content,
+          keywords: entry.keywords,
+          active: nextEnabled,
+        })
+        if (!result.ok) {
+          setNotice(result.error)
+          return
+        }
+        setEntries((current) =>
+          current.map((item) => (item.id === entry.id ? mapKnowledgeItem(result.data) : item)),
+        )
+      })
+      return
+    }
+    setEntries((current) =>
+      current.map((item) =>
+        item.id === entry.id
+          ? { ...item, enabled: nextEnabled, updatedAt: new Date().toISOString() }
+          : item,
+      ),
+    )
   }
 
   return (
@@ -277,6 +401,12 @@ export default function KnowledgeBaseView() {
             Nuevo conocimiento
           </button>
         </div>
+
+        {notice && (
+          <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {notice}
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[
@@ -359,7 +489,9 @@ export default function KnowledgeBaseView() {
               {filteredEntries.length} {filteredEntries.length === 1 ? 'resultado' : 'resultados'}
             </p>
             <p className="text-xs text-slate-400">
-              Los cambios se guardan automáticamente en este dispositivo
+              {payloadConnected
+                ? 'Sincronizado con Payload para esta clínica'
+                : 'Prototipo local · inicia sesión en Payload para sincronizar'}
             </p>
           </div>
 
@@ -405,19 +537,8 @@ export default function KnowledgeBaseView() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
-                        onClick={() =>
-                          setEntries((current) =>
-                            current.map((item) =>
-                              item.id === entry.id
-                                ? {
-                                    ...item,
-                                    enabled: !item.enabled,
-                                    updatedAt: new Date().toISOString(),
-                                  }
-                                : item,
-                            ),
-                          )
-                        }
+                        onClick={() => toggleEntry(entry)}
+                        disabled={isPending}
                         title={entry.enabled ? 'Desactivar respuesta' : 'Activar respuesta'}
                         aria-label={
                           entry.enabled ? `Desactivar ${entry.title}` : `Activar ${entry.title}`
@@ -622,10 +743,10 @@ export default function KnowledgeBaseView() {
               </button>
               <button
                 onClick={saveEntry}
-                disabled={!form.title.trim() || !form.content.trim()}
+                disabled={isPending || !form.title.trim() || !form.content.trim()}
                 className="px-4 py-2 text-sm font-semibold text-white rounded-lg bg-blue-800 hover:bg-blue-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                {editingId ? 'Guardar cambios' : 'Añadir conocimiento'}
+                {isPending ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Añadir conocimiento'}
               </button>
             </div>
           </div>
@@ -669,9 +790,10 @@ export default function KnowledgeBaseView() {
               </button>
               <button
                 onClick={removeEntry}
-                className="flex-1 py-2 text-sm font-semibold text-white rounded-lg bg-red-600 hover:bg-red-700 transition-colors"
+                disabled={isPending}
+                className="flex-1 py-2 text-sm font-semibold text-white rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-40 transition-colors"
               >
-                Eliminar
+                {isPending ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
           </div>
